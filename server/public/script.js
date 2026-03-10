@@ -23,8 +23,8 @@ const changeStepsOptions = document.getElementById("stepDate");
 const saveStepsBtn = document.getElementById("saveBtnChangeSteps");
 const changeStepsInput = document.getElementById("changeSteps");
 
-// API Configuration - Change this to your server URL
-const API_BASE_URL = "http://localhost:3000/api";
+// API base path for same-origin deployment behind Nginx
+const API_BASE_URL = "/api";
 
 let username = null;
 let currentUser = null;
