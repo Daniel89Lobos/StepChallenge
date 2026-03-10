@@ -1,0 +1,30 @@
+name: CI/CD pipeline
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy App
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: |
+            source /root/.nvm/nvm.sh
+            source ~/.bashrc
+            nvm use v22
+            npm install -g pm2
+            cd /srv/wwwroot/StepChallenge
+            git pull
+            npm ci
+            cd server/
+            pm2 stop server
+            pm2 delete server
+            pm2 start "npm start" --name server
