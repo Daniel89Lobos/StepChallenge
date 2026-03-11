@@ -1,13 +1,13 @@
 :root {
-  --bg: #fffaf1;
+  --bg: #f2f4f7;
   --surface: #ffffff;
-  --surface-soft: #fff4de;
-  --text: #21303c;
-  --muted: #5d6e79;
-  --accent: #dd6b43;
-  --accent-dark: #bc5230;
-  --line: #eddcc2;
-  --shadow: 0 10px 24px rgba(33, 48, 60, 0.12);
+  --surface-soft: #edf1f5;
+  --text: #1f2933;
+  --muted: #5d6874;
+  --accent: #4b5563;
+  --accent-dark: #2f3a46;
+  --line: #d6dde5;
+  --shadow: 0 10px 24px rgba(23, 31, 39, 0.12);
 }
 
 * {
@@ -24,8 +24,8 @@ body {
   font-family: "Quicksand", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at 10% 20%, #ffe8d2 0%, transparent 30%),
-    radial-gradient(circle at 90% 0%, #d7eef5 0%, transparent 24%),
+    radial-gradient(circle at 10% 20%, #e8edf2 0%, transparent 34%),
+    radial-gradient(circle at 90% 0%, #dde3ea 0%, transparent 28%),
     var(--bg);
   min-height: 100vh;
 }
@@ -37,39 +37,48 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem 1rem;
-  background: rgba(255, 250, 241, 0.95);
-  border-bottom: 1px solid var(--line);
+  padding: 0.95rem 1.4rem;
+  background: linear-gradient(90deg, #222c36 0%, #2c3946 100%);
+  border-bottom: 1px solid #2c3946;
+  box-shadow: 0 6px 18px rgba(17, 24, 32, 0.2);
   backdrop-filter: blur(8px);
 }
 
 .brand {
   text-decoration: none;
-  color: var(--text);
+  color: #f5f7fa;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  font-size: 1.02rem;
 }
 
 .site-nav {
   display: flex;
-  gap: 1rem;
+  gap: 0.55rem;
 }
 
 .site-nav a {
-  color: var(--muted);
+  color: #c6d0da;
   text-decoration: none;
   font-weight: 600;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .site-nav a.active,
 .site-nav a:hover {
-  color: var(--accent-dark);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .menu-toggle {
   display: none;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid #8c99a8;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f7fa;
   border-radius: 999px;
   padding: 0.35rem 0.8rem;
   font-family: inherit;
@@ -314,8 +323,8 @@ textarea {
     right: 1rem;
     top: 3.4rem;
     flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--line);
+    background: #2a3642;
+    border: 1px solid #445261;
     border-radius: 12px;
     padding: 0.8rem;
   }
