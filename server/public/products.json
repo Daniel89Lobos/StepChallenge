@@ -1,0 +1,70 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "slug": "the-lantern-trail-club",
+      "name": "The Lantern Trail Club",
+      "description": "Adventure mystery chapter book for readers aged 9-12.",
+      "category": "books",
+      "unitAmount": 16000,
+      "currency": "sek",
+      "price": "160,00 kr",
+      "stockQuantity": 24,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/book-lantern.svg",
+      "active": true,
+      "stripeTaxCode": null
+    },
+    {
+      "id": 2,
+      "slug": "mapmakers-of-moon-bay",
+      "name": "Mapmakers of Moon Bay",
+      "description": "Middle-grade story focused on teamwork, creativity, and discovery.",
+      "category": "books",
+      "unitAmount": 18000,
+      "currency": "sek",
+      "price": "180,00 kr",
+      "stockQuantity": 18,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/book-mapmakers.svg",
+      "active": true,
+      "stripeTaxCode": null
+    },
+    {
+      "id": 3,
+      "slug": "adult-creative-reset-calendar",
+      "name": "Adult Creative Reset Calendar",
+      "description": "Daily prompts for adults building calm, consistent hobby habits.",
+      "category": "calendars",
+      "unitAmount": 20000,
+      "currency": "sek",
+      "price": "200,00 kr",
+      "stockQuantity": 16,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/calendar-adult.svg",
+      "active": true,
+      "stripeTaxCode": null
+    },
+    {
+      "id": 4,
+      "slug": "family-hobby-year-planner",
+      "name": "Family Hobby Year Planner",
+      "description": "Monthly family activities with low-prep ideas and memory prompts.",
+      "category": "calendars",
+      "unitAmount": 22000,
+      "currency": "sek",
+      "price": "220,00 kr",
+      "stockQuantity": 14,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/calendar-family.svg",
+      "active": true,
+      "stripeTaxCode": null
+    }
+  ],
+  "shipping": {
+    "amount": 4900,
+    "formattedAmount": "49,00 kr",
+    "country": "SE",
+    "label": "Sweden standard shipping"
+  }
+}

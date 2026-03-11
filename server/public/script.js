@@ -1,4 +1,5 @@
 const CART_STORAGE_KEY = "lobos-cart";
+const FALLBACK_PRODUCTS_PATH = "products.json";
 
 function sanitizeCart(items) {
   if (!Array.isArray(items)) {
@@ -125,6 +126,31 @@ window.LobosCart = {
   },
 
   syncCount: syncCartCount,
+};
+
+window.LobosStore = {
+  async fetchCatalog() {
+    try {
+      const apiResponse = await fetch("/api/products");
+
+      if (apiResponse.ok) {
+        const apiData = await apiResponse.json();
+        return {
+          ...apiData,
+          source: "api",
+        };
+      }
+    } catch (error) {
+    }
+
+    const fallbackResponse = await fetch(FALLBACK_PRODUCTS_PATH);
+    const fallbackData = await fallbackResponse.json();
+
+    return {
+      ...fallbackData,
+      source: "fallback",
+    };
+  },
 };
 
 const menuToggle = document.getElementById("menuToggle");

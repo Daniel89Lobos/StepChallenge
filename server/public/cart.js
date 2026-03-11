@@ -7,6 +7,7 @@ const checkoutButton = document.getElementById("checkoutButton");
 
 let cartProducts = [];
 let shippingAmount = 0;
+let catalogSource = "api";
 
 function showCartNotice(message, type = "error") {
   if (!cartNotice) {
@@ -152,16 +153,19 @@ async function loadCartProducts() {
   }
 
   try {
-    const response = await fetch("/api/products");
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Could not load cart data");
-    }
+    const data = await window.LobosStore.fetchCatalog();
 
     cartProducts = data.products || [];
     shippingAmount = Number(data.shipping?.amount || 0);
+    catalogSource = data.source || "api";
     renderCart();
+
+    if (catalogSource === "fallback") {
+      checkoutButton.disabled = true;
+      showCartNotice(
+        "Your products are showing from a static catalog. Checkout is disabled until the backend API, database, and Stripe server are deployed.",
+      );
+    }
   } catch (error) {
     cartItemsRoot.innerHTML = `
       <article class="empty-state">
@@ -169,7 +173,7 @@ async function loadCartProducts() {
         <p>${error.message}</p>
       </article>
     `;
-    showCartNotice(error.message);
+    showCartNotice("Could not load cart data from either the API or the fallback catalog.");
     checkoutButton.disabled = true;
   }
 }
@@ -217,6 +221,13 @@ if (cartItemsRoot) {
   });
 
   checkoutButton.addEventListener("click", async () => {
+    if (catalogSource === "fallback") {
+      showCartNotice(
+        "Checkout cannot start yet because the live backend is missing. The website is currently running in catalog-only mode.",
+      );
+      return;
+    }
+
     const state = getCartState();
 
     if (state.validItems.length === 0 || state.unavailableItems.length > 0) {

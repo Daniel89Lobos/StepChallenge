@@ -80,14 +80,15 @@ async function loadProducts() {
   }
 
   try {
-    const response = await fetch("/api/products");
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Could not load products");
-    }
+    const data = await window.LobosStore.fetchCatalog();
 
     renderProducts(data.products || []);
+
+    if (data.source === "fallback") {
+      showShopNotice(
+        "Products are loading from a static catalog because the live backend API is not deployed yet. Browsing works, but checkout still needs the server setup.",
+      );
+    }
   } catch (error) {
     productGrid.innerHTML = `
       <article class="card empty-state">
@@ -95,7 +96,7 @@ async function loadProducts() {
         <p>${error.message}</p>
       </article>
     `;
-    showShopNotice(error.message);
+    showShopNotice("Could not load products from either the API or the fallback catalog.");
   }
 }
 
