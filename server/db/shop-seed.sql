@@ -57,6 +57,30 @@ INSERT INTO products (
     'assets/images/calendar-family.svg',
     true,
     NULL
+  ),
+  (
+    'forest-friend-fox',
+    'Forest Friend Fox',
+    'Handmade crochet fox with a soft finish for gifting, shelf display, or imaginative play.',
+    'amigurumi',
+    19000,
+    'sek',
+    10,
+    'assets/images/amigurumi-fox.svg',
+    true,
+    NULL
+  ),
+  (
+    'pocket-ocean-octopus',
+    'Pocket Ocean Octopus',
+    'Small crochet octopus made as a cheerful handmade companion and easy gift item.',
+    'amigurumi',
+    17000,
+    'sek',
+    12,
+    'assets/images/amigurumi-octopus.svg',
+    true,
+    NULL
   )
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,

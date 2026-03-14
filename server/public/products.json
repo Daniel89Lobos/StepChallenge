@@ -59,6 +59,36 @@
       "imagePath": "assets/images/calendar-family.svg",
       "active": true,
       "stripeTaxCode": null
+    },
+    {
+      "id": 5,
+      "slug": "forest-friend-fox",
+      "name": "Forest Friend Fox",
+      "description": "Handmade crochet fox with a soft finish for gifting, shelf display, or imaginative play.",
+      "category": "amigurumi",
+      "unitAmount": 19000,
+      "currency": "sek",
+      "price": "190,00 kr",
+      "stockQuantity": 10,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/amigurumi-fox.svg",
+      "active": true,
+      "stripeTaxCode": null
+    },
+    {
+      "id": 6,
+      "slug": "pocket-ocean-octopus",
+      "name": "Pocket Ocean Octopus",
+      "description": "Small crochet octopus made as a cheerful handmade companion and easy gift item.",
+      "category": "amigurumi",
+      "unitAmount": 17000,
+      "currency": "sek",
+      "price": "170,00 kr",
+      "stockQuantity": 12,
+      "stockStatus": "in_stock",
+      "imagePath": "assets/images/amigurumi-octopus.svg",
+      "active": true,
+      "stripeTaxCode": null
     }
   ],
   "shipping": {

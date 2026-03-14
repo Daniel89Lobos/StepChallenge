@@ -1,6 +1,22 @@
 const productGrid = document.getElementById("productGrid");
 const shopNotice = document.getElementById("shopNotice");
 
+function getCategoryLabel(category) {
+  if (category === "books") {
+    return "Book";
+  }
+
+  if (category === "calendars") {
+    return "Calendar";
+  }
+
+  if (category === "amigurumi") {
+    return "Amigurumi";
+  }
+
+  return "Product";
+}
+
 function showShopNotice(message, type = "error") {
   if (!shopNotice) {
     return;
@@ -57,7 +73,7 @@ function renderProducts(products) {
       return `
         <article class="card product-card card-stack" data-category="${product.category}">
           <img class="product-image" src="${product.imagePath}" alt="${product.name}" />
-          <div class="card-tag">${product.category === "books" ? "Book" : "Calendar"}</div>
+          <div class="card-tag">${getCategoryLabel(product.category)}</div>
           <h3>${product.name}</h3>
           <p>${product.description}</p>
           <p class="price">${product.price}</p>

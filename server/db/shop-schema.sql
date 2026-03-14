@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS products (
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('books', 'calendars')),
+  category TEXT NOT NULL CHECK (category IN ('books', 'calendars', 'amigurumi')),
   unit_amount INTEGER NOT NULL CHECK (unit_amount >= 0),
   currency TEXT NOT NULL DEFAULT 'sek',
   stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
