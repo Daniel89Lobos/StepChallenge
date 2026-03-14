@@ -92,7 +92,7 @@ function renderCart() {
     cartItemsRoot.innerHTML = `
       <article class="empty-state">
         <h3>Your cart is empty</h3>
-        <p>Add books or calendars from the shop to start checkout.</p>
+        <p>Add books, calendars, or amigurumi from the shop to start checkout.</p>
         <a class="btn" href="shop.html">Go to shop</a>
       </article>
     `;
@@ -105,15 +105,18 @@ function renderCart() {
     .map(
       (item) => `
         <article class="cart-row">
-          <div class="cart-line-meta">
-            <h3>${item.product.name}</h3>
-            <p class="muted">${item.product.description}</p>
-            <p class="muted">${item.product.price} each</p>
-            <div class="qty-control">
-              <button class="qty-btn" type="button" data-action="decrement" data-product-id="${item.product.id}">-</button>
-              <span class="qty-value">${item.quantity}</span>
-              <button class="qty-btn" type="button" data-action="increment" data-product-id="${item.product.id}">+</button>
-              <button class="link-btn" type="button" data-action="remove" data-product-id="${item.product.id}">Remove</button>
+          <div class="cart-line-main">
+            <img class="cart-thumb" src="${item.product.imagePath}" alt="${item.product.name}" />
+            <div class="cart-line-meta">
+              <h3>${item.product.name}</h3>
+              <p class="muted">${item.product.description}</p>
+              <p class="muted">${item.product.price} each</p>
+              <div class="qty-control">
+                <button class="qty-btn" type="button" data-action="decrement" data-product-id="${item.product.id}">-</button>
+                <span class="qty-value">${item.quantity}</span>
+                <button class="qty-btn" type="button" data-action="increment" data-product-id="${item.product.id}">+</button>
+                <button class="link-btn" type="button" data-action="remove" data-product-id="${item.product.id}">Remove</button>
+              </div>
             </div>
           </div>
           <p class="price">${window.LobosCart.formatMoney(item.lineTotal)}</p>
@@ -126,10 +129,13 @@ function renderCart() {
     .map(
       (item) => `
         <article class="cart-row">
-          <div class="cart-line-meta">
-            <h3>${item.product ? item.product.name : `Product #${item.productId}`}</h3>
-            <p class="muted">${item.reason}</p>
-            <button class="link-btn" type="button" data-action="remove" data-product-id="${item.productId}">Remove from cart</button>
+          <div class="cart-line-main">
+            ${item.product ? `<img class="cart-thumb" src="${item.product.imagePath}" alt="${item.product.name}" />` : ""}
+            <div class="cart-line-meta">
+              <h3>${item.product ? item.product.name : `Product #${item.productId}`}</h3>
+              <p class="muted">${item.reason}</p>
+              <button class="link-btn" type="button" data-action="remove" data-product-id="${item.productId}">Remove from cart</button>
+            </div>
           </div>
           <span class="status-pill out-of-stock">Unavailable</span>
         </article>
