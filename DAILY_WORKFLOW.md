@@ -27,10 +27,10 @@ I do this step in VS Code (top left) "Source Control". Name the changes and then
 SSH in:
 
 ```bash
-ssh root@161.97.68.242
+ssh your-admin-user@your-server-ip (check Word document)
 ```
 
-Password: 5j56fKTJ5fBm9kbR2IuNY
+Password: stored outside the repository (password manager only)
 
 Deploy latest code:
 
