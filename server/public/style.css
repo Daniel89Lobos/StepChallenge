@@ -488,6 +488,97 @@ h1 {
   gap: 0.85rem;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
+.checkout-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+}
+
+.checkout-gate-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 27, 34, 0.52);
+  backdrop-filter: blur(4px);
+}
+
+.checkout-gate-dialog {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fb 100%);
+  box-shadow: 0 24px 48px rgba(18, 24, 31, 0.24);
+  display: grid;
+  gap: 1rem;
+}
+
+.checkout-gate-dialog h2,
+.checkout-gate-dialog p {
+  margin: 0;
+}
+
+.checkout-gate-close {
+  justify-self: end;
+}
+
+.checkout-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.checkout-login-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.auth-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1.2rem;
+}
+
+.auth-panel h2,
+.auth-panel p,
+.account-summary p {
+  margin: 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.account-summary {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .cart-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -678,7 +769,8 @@ textarea {
 
 @media (max-width: 860px) {
   .split-grid,
-  .cards {
+  .cards,
+  .auth-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -710,6 +802,7 @@ textarea {
 
   .split-grid,
    .cards,
+   .auth-grid,
    .cart-layout,
    .checkout-grid,
    .cart-row {
@@ -720,9 +813,17 @@ textarea {
     flex-direction: column;
   }
 
-  .product-actions {
+   .checkout-gate-actions {
     flex-direction: column;
-    align-items: stretch;
+   }
+
+   .account-actions {
+    flex-direction: column;
+   }
+
+   .product-actions {
+     flex-direction: column;
+     align-items: stretch;
   }
 
   .cart-line-main {

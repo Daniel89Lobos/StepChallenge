@@ -22,6 +22,7 @@
         <a href="about.html">About</a>
         <a href="faq.html">FAQ</a>
         <a href="contact.html">Contact</a>
+        <a href="account.html" data-account-link>Login</a>
         <a class="active cart-link" href="cart.html">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
       </nav>
     </header>
@@ -29,7 +30,7 @@
     <main>
       <section class="content-panel">
         <h1>Your cart</h1>
-        <p>Review quantities, confirm stock, and continue to Stripe Checkout for shipping and payment.</p>
+        <p>Review quantities, confirm stock, and continue to Stripe Checkout as a guest or with your own account.</p>
       </section>
 
       <p id="cartNotice" class="page-status" hidden></p>
@@ -56,6 +57,56 @@
           <p class="muted">Shipping is collected for Sweden only during this first launch phase.</p>
           <button id="checkoutButton" class="btn" type="button">Continue to Stripe Checkout</button>
         </aside>
+      </section>
+
+      <section id="checkoutGate" class="checkout-gate" hidden>
+        <div class="checkout-gate-backdrop" data-gate-close></div>
+        <section class="checkout-gate-dialog" role="dialog" aria-modal="true" aria-labelledby="checkoutGateTitle">
+          <button class="checkout-gate-close link-btn" type="button" data-gate-close>Close</button>
+
+          <div id="checkoutGateChoice">
+            <p class="eyebrow">Almost there</p>
+            <h2 id="checkoutGateTitle">How would you like to continue?</h2>
+            <p class="muted">Choose guest checkout for the fastest path, or log in to keep this cart tied to your own account.</p>
+            <div class="checkout-gate-actions">
+              <button id="guestCheckoutButton" class="btn" type="button">Continue as guest</button>
+              <button id="showLoginButton" class="btn btn-secondary" type="button">Log in to my account</button>
+              <button id="showRegisterButton" class="btn btn-secondary" type="button">Create account</button>
+            </div>
+          </div>
+
+          <form id="checkoutLoginForm" class="checkout-login-form" hidden>
+            <p class="eyebrow">Account checkout</p>
+            <h2>Log in and continue</h2>
+            <p class="muted">Your current guest cart will move into your account cart after you sign in.</p>
+            <label for="checkoutUsername">Username</label>
+            <input id="checkoutUsername" name="username" type="text" autocomplete="username" required />
+            <label for="checkoutPassword">Password</label>
+            <input id="checkoutPassword" name="password" type="password" autocomplete="current-password" required />
+            <p id="checkoutAuthNotice" class="page-status" hidden></p>
+            <div class="checkout-gate-actions">
+              <button id="loginAndCheckoutButton" class="btn" type="submit">Log in and continue</button>
+              <button id="backToCheckoutChoiceButton" class="btn btn-secondary" type="button">Back</button>
+            </div>
+          </form>
+
+          <form id="checkoutRegisterForm" class="checkout-login-form" hidden>
+            <p class="eyebrow">Create an account</p>
+            <h2>Save this cart to your account</h2>
+            <p class="muted">Create an account now and we will move your current guest cart into it before payment.</p>
+            <label for="checkoutRegisterUsername">Username</label>
+            <input id="checkoutRegisterUsername" name="username" type="text" autocomplete="username" required />
+            <label for="checkoutRegisterPassword">Password</label>
+            <input id="checkoutRegisterPassword" name="password" type="password" autocomplete="new-password" required />
+            <label for="checkoutRegisterGroup">Family or group name <span class="muted">(optional)</span></label>
+            <input id="checkoutRegisterGroup" name="group" type="text" autocomplete="organization" />
+            <p id="checkoutRegisterNotice" class="page-status" hidden></p>
+            <div class="checkout-gate-actions">
+              <button id="createAccountAndCheckoutButton" class="btn" type="submit">Create account and continue</button>
+              <button id="backToCheckoutChoiceFromRegisterButton" class="btn btn-secondary" type="button">Back</button>
+            </div>
+          </form>
+        </section>
       </section>
     </main>
 

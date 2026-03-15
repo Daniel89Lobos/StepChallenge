@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account | Lobos Shop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Lobos Shop</a>
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">Menu</button>
+      <nav id="siteNav" class="site-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+        <a class="active" href="account.html" data-account-link>Login</a>
+        <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="content-panel">
+        <h1>Your account</h1>
+        <p>Log in to keep your cart with your account, or create a new account before checkout.</p>
+      </section>
+
+      <p id="accountNotice" class="page-status" hidden></p>
+
+      <section id="guestAccountPanels" class="auth-grid">
+        <section class="auth-panel">
+          <p class="eyebrow">Returning customer</p>
+          <h2>Log in</h2>
+          <form id="accountLoginForm" class="auth-form">
+            <label for="accountLoginUsername">Username</label>
+            <input id="accountLoginUsername" name="username" type="text" autocomplete="username" required />
+            <label for="accountLoginPassword">Password</label>
+            <input id="accountLoginPassword" name="password" type="password" autocomplete="current-password" required />
+            <button id="accountLoginButton" class="btn" type="submit">Log in</button>
+          </form>
+        </section>
+
+        <section class="auth-panel">
+          <p class="eyebrow">New here?</p>
+          <h2>Create an account</h2>
+          <form id="accountRegisterForm" class="auth-form">
+            <label for="accountRegisterUsername">Username</label>
+            <input id="accountRegisterUsername" name="username" type="text" autocomplete="username" required />
+            <label for="accountRegisterPassword">Password</label>
+            <input id="accountRegisterPassword" name="password" type="password" autocomplete="new-password" required />
+            <label for="accountRegisterGroup">Family or group name <span class="muted">(optional)</span></label>
+            <input id="accountRegisterGroup" name="group" type="text" autocomplete="organization" />
+            <p class="small-note">If you leave this blank, we use your username as the group name.</p>
+            <button id="accountRegisterButton" class="btn" type="submit">Create account</button>
+          </form>
+        </section>
+      </section>
+
+      <section id="accountProfilePanel" class="content-panel" hidden>
+        <p class="eyebrow">Signed in</p>
+        <h2 id="accountProfileHeading">Welcome back</h2>
+        <div class="account-summary">
+          <p><strong>Username:</strong> <span id="accountProfileUsername"></span></p>
+          <p><strong>Group:</strong> <span id="accountProfileGroup"></span></p>
+        </div>
+        <div class="account-actions">
+          <a class="btn" href="cart.html">Go to cart</a>
+          <a class="btn btn-secondary" href="shop.html">Keep shopping</a>
+          <button id="accountLogoutButton" class="btn btn-secondary" type="button">Log out</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Lobos Shop</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="account.js"></script>
+  </body>
+</html>

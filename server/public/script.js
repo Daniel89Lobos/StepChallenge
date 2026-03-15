@@ -8,6 +8,8 @@ let cartScope = {
   username: null,
 };
 let cartLoadPromise = null;
+let authStateCache = null;
+let authStatePromise = null;
 
 function sanitizeCart(items) {
   if (!Array.isArray(items)) {
@@ -74,6 +76,30 @@ function mergeCartItems(...carts) {
   return sanitizeCart(carts.flat());
 }
 
+function updateAccountLinks(user) {
+  document.querySelectorAll("[data-account-link]").forEach((link) => {
+    link.textContent = user ? "Account" : "Login";
+    link.href = "account.html";
+
+    if (user?.username) {
+      link.title = `Signed in as ${user.username}`;
+    } else {
+      link.removeAttribute("title");
+    }
+  });
+}
+
+function emitAuthUpdate(user) {
+  window.dispatchEvent(
+    new CustomEvent("lobos:auth-changed", {
+      detail: {
+        authenticated: Boolean(user?.userId),
+        user: user ? { ...user } : null,
+      },
+    }),
+  );
+}
+
 async function fetchAuthState() {
   const response = await fetch("/api/auth/check", {
     credentials: "include",
@@ -94,6 +120,112 @@ async function fetchAuthState() {
     username: data.username || null,
   };
 }
+
+async function refreshAuthState() {
+  if (!authStatePromise) {
+    authStatePromise = fetchAuthState()
+      .then((user) => {
+        authStateCache = user ? { ...user } : null;
+        updateAccountLinks(authStateCache);
+        emitAuthUpdate(authStateCache);
+        return authStateCache;
+      })
+      .catch(() => {
+        authStateCache = null;
+        updateAccountLinks(null);
+        emitAuthUpdate(null);
+        return null;
+      })
+      .finally(() => {
+        authStatePromise = null;
+      });
+  }
+
+  return authStatePromise;
+}
+
+window.LobosAuth = {
+  ready: refreshAuthState(),
+
+  async refresh() {
+    return refreshAuthState();
+  },
+
+  getUser() {
+    return authStateCache ? { ...authStateCache } : null;
+  },
+
+  isAuthenticated() {
+    return Boolean(authStateCache?.userId);
+  },
+
+  async login(username, password) {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not log in");
+    }
+
+    await refreshAuthState();
+    await window.LobosCart?.refresh?.();
+    return data.user;
+  },
+
+  async register({ username, password, group }) {
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+        group: group || username,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create your account");
+    }
+
+    return data.user;
+  },
+
+  async registerAndLogin({ username, password, group }) {
+    await window.LobosAuth.register({ username, password, group });
+    return window.LobosAuth.login(username, password);
+  },
+
+  async logout() {
+    const response = await fetch("/api/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not log out");
+    }
+
+    authStateCache = null;
+    updateAccountLinks(null);
+    emitAuthUpdate(null);
+    await window.LobosCart?.refresh?.();
+    return data;
+  },
+};
 
 async function fetchRemoteCart() {
   const response = await fetch("/api/cart", {
@@ -130,7 +262,7 @@ async function saveRemoteCart(items) {
 
 async function loadCartState() {
   try {
-    const authenticatedUser = await fetchAuthState();
+    const authenticatedUser = window.LobosAuth ? await window.LobosAuth.refresh() : await fetchAuthState();
 
     if (!authenticatedUser) {
       cartScope = {
@@ -472,6 +604,8 @@ window.addEventListener("storage", (event) => {
 });
 window.addEventListener("lobos:cart-updated", syncCartCount);
 window.addEventListener("focus", () => {
+  window.LobosAuth.refresh().catch(() => {});
   window.LobosCart.refresh().catch(() => {});
 });
+updateAccountLinks(null);
 syncCartCount();

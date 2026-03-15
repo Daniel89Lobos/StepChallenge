@@ -4,10 +4,26 @@ const subtotalValue = document.getElementById("subtotalValue");
 const shippingValue = document.getElementById("shippingValue");
 const totalValue = document.getElementById("totalValue");
 const checkoutButton = document.getElementById("checkoutButton");
+const checkoutGate = document.getElementById("checkoutGate");
+const checkoutGateChoice = document.getElementById("checkoutGateChoice");
+const checkoutLoginForm = document.getElementById("checkoutLoginForm");
+const checkoutRegisterForm = document.getElementById("checkoutRegisterForm");
+const checkoutAuthNotice = document.getElementById("checkoutAuthNotice");
+const checkoutRegisterNotice = document.getElementById("checkoutRegisterNotice");
+const guestCheckoutButton = document.getElementById("guestCheckoutButton");
+const showLoginButton = document.getElementById("showLoginButton");
+const showRegisterButton = document.getElementById("showRegisterButton");
+const loginAndCheckoutButton = document.getElementById("loginAndCheckoutButton");
+const createAccountAndCheckoutButton = document.getElementById("createAccountAndCheckoutButton");
+const backToCheckoutChoiceButton = document.getElementById("backToCheckoutChoiceButton");
+const backToCheckoutChoiceFromRegisterButton = document.getElementById("backToCheckoutChoiceFromRegisterButton");
+const checkoutUsernameInput = document.getElementById("checkoutUsername");
+const checkoutRegisterUsernameInput = document.getElementById("checkoutRegisterUsername");
 
 let cartProducts = [];
 let shippingAmount = 0;
 let catalogSource = "api";
+const defaultCheckoutButtonLabel = checkoutButton ? checkoutButton.textContent : "Continue to Stripe Checkout";
 
 function getCategoryLabel(category) {
   if (category === "books") {
@@ -47,6 +63,206 @@ function clearCartNotice() {
   cartNotice.hidden = true;
   cartNotice.textContent = "";
   cartNotice.className = "page-status";
+}
+
+function showCheckoutAuthNotice(message, type = "error") {
+  if (!checkoutAuthNotice) {
+    return;
+  }
+
+  checkoutAuthNotice.hidden = false;
+  checkoutAuthNotice.className = `page-status${type === "success" ? " is-success" : type === "error" ? " is-error" : ""}`;
+  checkoutAuthNotice.textContent = message;
+}
+
+function clearCheckoutAuthNotice() {
+  if (!checkoutAuthNotice) {
+    return;
+  }
+
+  checkoutAuthNotice.hidden = true;
+  checkoutAuthNotice.className = "page-status";
+  checkoutAuthNotice.textContent = "";
+}
+
+function showCheckoutRegisterNotice(message, type = "error") {
+  if (!checkoutRegisterNotice) {
+    return;
+  }
+
+  checkoutRegisterNotice.hidden = false;
+  checkoutRegisterNotice.className = `page-status${type === "success" ? " is-success" : type === "error" ? " is-error" : ""}`;
+  checkoutRegisterNotice.textContent = message;
+}
+
+function clearCheckoutRegisterNotice() {
+  if (!checkoutRegisterNotice) {
+    return;
+  }
+
+  checkoutRegisterNotice.hidden = true;
+  checkoutRegisterNotice.className = "page-status";
+  checkoutRegisterNotice.textContent = "";
+}
+
+function showCheckoutGateView(view) {
+  if (!checkoutGateChoice || !checkoutLoginForm || !checkoutRegisterForm) {
+    return;
+  }
+
+  checkoutGateChoice.hidden = view !== "choice";
+  checkoutLoginForm.hidden = view !== "login";
+  checkoutRegisterForm.hidden = view !== "register";
+
+  if (checkoutGate?.hidden) {
+    return;
+  }
+
+  if (view === "login") {
+    checkoutUsernameInput?.focus();
+  } else if (view === "register") {
+    checkoutRegisterUsernameInput?.focus();
+  } else {
+    guestCheckoutButton?.focus();
+  }
+}
+
+function openCheckoutGate(view = "choice") {
+  if (!checkoutGate) {
+    return;
+  }
+
+  clearCheckoutAuthNotice();
+  clearCheckoutRegisterNotice();
+  checkoutGate.hidden = false;
+  document.body.classList.add("modal-open");
+  showCheckoutGateView(view);
+}
+
+function closeCheckoutGate() {
+  if (!checkoutGate) {
+    return;
+  }
+
+  checkoutGate.hidden = true;
+  document.body.classList.remove("modal-open");
+  clearCheckoutAuthNotice();
+  clearCheckoutRegisterNotice();
+  checkoutLoginForm?.reset();
+  checkoutRegisterForm?.reset();
+  showCheckoutGateView("choice");
+}
+
+function setCheckoutButtonLoading(isLoading, label = defaultCheckoutButtonLabel) {
+  if (!checkoutButton) {
+    return;
+  }
+
+  checkoutButton.disabled = isLoading;
+  checkoutButton.textContent = label;
+}
+
+function setLoginCheckoutLoading(isLoading) {
+  if (!loginAndCheckoutButton || !guestCheckoutButton || !showLoginButton || !backToCheckoutChoiceButton) {
+    return;
+  }
+
+  loginAndCheckoutButton.disabled = isLoading;
+  guestCheckoutButton.disabled = isLoading;
+  showLoginButton.disabled = isLoading;
+  backToCheckoutChoiceButton.disabled = isLoading;
+  loginAndCheckoutButton.textContent = isLoading ? "Logging in..." : "Log in and continue";
+}
+
+function setRegisterCheckoutLoading(isLoading) {
+  if (!createAccountAndCheckoutButton || !guestCheckoutButton || !showRegisterButton || !backToCheckoutChoiceFromRegisterButton) {
+    return;
+  }
+
+  createAccountAndCheckoutButton.disabled = isLoading;
+  guestCheckoutButton.disabled = isLoading;
+  showRegisterButton.disabled = isLoading;
+  backToCheckoutChoiceFromRegisterButton.disabled = isLoading;
+  createAccountAndCheckoutButton.textContent = isLoading ? "Creating account..." : "Create account and continue";
+}
+
+function getCheckoutState() {
+  if (catalogSource === "fallback") {
+    showCartNotice(
+      "Checkout cannot start yet because the live backend is missing. The website is currently running in catalog-only mode.",
+    );
+    return null;
+  }
+
+  const state = getCartState();
+
+  if (state.validItems.length === 0 || state.unavailableItems.length > 0) {
+    showCartNotice("Please fix the cart before continuing to payment.");
+    return null;
+  }
+
+  return state;
+}
+
+async function startCheckout(state = getCheckoutState()) {
+  if (!state) {
+    return;
+  }
+
+  try {
+    setCheckoutButtonLoading(true, "Redirecting...");
+
+    const response = await fetch("/api/checkout/session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ items: state.validItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })) }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not start checkout");
+    }
+
+    window.location.href = data.url;
+  } catch (error) {
+    showCartNotice(error.message);
+    setCheckoutButtonLoading(false, defaultCheckoutButtonLabel);
+  }
+}
+
+async function handleCheckoutClick() {
+  const state = getCheckoutState();
+
+  if (!state) {
+    return;
+  }
+
+  await window.LobosCart.refresh();
+  const cartScope = window.LobosCart.getScope();
+
+  if (cartScope.type === "user" && cartScope.userId) {
+    startCheckout(getCheckoutState());
+    return;
+  }
+
+  openCheckoutGate("choice");
+}
+
+async function loginAndContinueCheckout(username, password) {
+  await window.LobosAuth.login(username, password);
+  renderCart();
+  closeCheckoutGate();
+  await startCheckout(getCheckoutState());
+}
+
+async function createAccountAndContinueCheckout(username, password, group) {
+  await window.LobosAuth.registerAndLogin({ username, password, group });
+  renderCart();
+  closeCheckoutGate();
+  await startCheckout(getCheckoutState());
 }
 
 function getCartState() {
@@ -252,45 +468,94 @@ if (cartItemsRoot) {
   });
 
   checkoutButton.addEventListener("click", async () => {
-    if (catalogSource === "fallback") {
-      showCartNotice(
-        "Checkout cannot start yet because the live backend is missing. The website is currently running in catalog-only mode.",
-      );
-      return;
+    await handleCheckoutClick();
+  });
+
+  window.addEventListener("lobos:cart-updated", renderCart);
+}
+
+if (checkoutGate) {
+  checkoutGate.addEventListener("click", (event) => {
+    if (event.target.closest("[data-gate-close]")) {
+      closeCheckoutGate();
     }
+  });
 
-    const state = getCartState();
+  showLoginButton?.addEventListener("click", () => {
+    clearCheckoutAuthNotice();
+    showCheckoutGateView("login");
+  });
 
-    if (state.validItems.length === 0 || state.unavailableItems.length > 0) {
-      showCartNotice("Please fix the cart before continuing to payment.");
+  showRegisterButton?.addEventListener("click", () => {
+    clearCheckoutRegisterNotice();
+    showCheckoutGateView("register");
+  });
+
+  backToCheckoutChoiceButton?.addEventListener("click", () => {
+    clearCheckoutAuthNotice();
+    showCheckoutGateView("choice");
+  });
+
+  backToCheckoutChoiceFromRegisterButton?.addEventListener("click", () => {
+    clearCheckoutRegisterNotice();
+    showCheckoutGateView("choice");
+  });
+
+  guestCheckoutButton?.addEventListener("click", async () => {
+    closeCheckoutGate();
+    await startCheckout(getCheckoutState());
+  });
+
+  checkoutLoginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearCheckoutAuthNotice();
+
+    const formData = new FormData(checkoutLoginForm);
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "");
+
+    if (!username || !password) {
+      showCheckoutAuthNotice("Enter both your username and password.");
       return;
     }
 
     try {
-      checkoutButton.disabled = true;
-      checkoutButton.textContent = "Redirecting...";
-
-      const response = await fetch("/api/checkout/session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ items: state.validItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })) }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Could not start checkout");
-      }
-
-      window.location.href = data.url;
+      setLoginCheckoutLoading(true);
+      await loginAndContinueCheckout(username, password);
     } catch (error) {
-      showCartNotice(error.message);
-      checkoutButton.disabled = false;
-      checkoutButton.textContent = "Continue to Stripe Checkout";
+      showCheckoutAuthNotice(error.message || "Could not log in.");
+    } finally {
+      setLoginCheckoutLoading(false);
     }
   });
 
-  window.addEventListener("lobos:cart-updated", renderCart);
+  checkoutRegisterForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearCheckoutRegisterNotice();
+
+    const formData = new FormData(checkoutRegisterForm);
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "");
+    const group = String(formData.get("group") || "").trim();
+
+    if (!username || !password) {
+      showCheckoutRegisterNotice("Choose a username and password to create your account.");
+      return;
+    }
+
+    try {
+      setRegisterCheckoutLoading(true);
+      await createAccountAndContinueCheckout(username, password, group);
+    } catch (error) {
+      showCheckoutRegisterNotice(error.message || "Could not create your account.");
+    } finally {
+      setRegisterCheckoutLoading(false);
+    }
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !checkoutGate.hidden) {
+      closeCheckoutGate();
+    }
+  });
 }
