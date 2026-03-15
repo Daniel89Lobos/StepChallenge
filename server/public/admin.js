@@ -7,6 +7,7 @@ const adminOrders = document.getElementById("adminOrders");
 const adminUsers = document.getElementById("adminUsers");
 const refreshOrdersButton = document.getElementById("refreshOrdersButton");
 const refreshUsersButton = document.getElementById("refreshUsersButton");
+const expandedOrderDetails = new Map();
 
 function showAdminNotice(message, type = "error") {
   if (!adminNotice) {
@@ -97,12 +98,111 @@ function renderOrders(orders) {
                   .join("")}
               </select>
             </label>
-            <button class="btn btn-secondary" type="submit">Update order</button>
+            <div class="admin-inline-actions">
+              <button class="btn btn-secondary" type="submit">Update order</button>
+              <button class="btn btn-secondary" type="button" data-order-toggle data-order-id="${order.id}">${expandedOrderDetails.has(order.id) ? "Hide details" : "View details"}</button>
+            </div>
           </form>
+          <div class="admin-order-detail" data-order-detail="${order.id}"${expandedOrderDetails.has(order.id) ? "" : " hidden"}>${expandedOrderDetails.get(order.id) || ""}</div>
         </article>
       `,
     )
     .join("");
+}
+
+function renderAddressLines(address) {
+  if (!address || typeof address !== "object") {
+    return ["No shipping address saved."];
+  }
+
+  const lines = [
+    [address.line1, address.line2].filter(Boolean).join(", "),
+    [address.postal_code, address.city].filter(Boolean).join(" "),
+    address.state || "",
+    address.country || "",
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  return lines.length > 0 ? lines : ["No shipping address saved."];
+}
+
+function renderOrderDetailMarkup(order) {
+  const shipping = order.shippingAddress || {};
+  const shippingAddress = shipping.address || shipping;
+  const currency = String(order.currency || "SEK").toUpperCase();
+
+  return `
+    <div class="admin-detail-grid">
+      <section>
+        <h4>Customer</h4>
+        <p><strong>Name:</strong> ${order.customerName || shipping.name || "Guest checkout"}</p>
+        <p><strong>Email:</strong> ${order.customerEmail || "-"}</p>
+        <p><strong>Phone:</strong> ${order.phone || shipping.phone || "-"}</p>
+      </section>
+      <section>
+        <h4>Shipping</h4>
+        ${renderAddressLines(shippingAddress)
+          .map((line) => `<p>${line}</p>`)
+          .join("")}
+      </section>
+    </div>
+    <section class="admin-order-lines">
+      <h4>Items</h4>
+      ${order.items
+        .map(
+          (item) => `
+            <div class="admin-order-line">
+              <div>
+                <strong>${item.productName}</strong>
+                <p class="muted">${item.quantity} x ${window.LobosCart.formatMoney(item.unitAmount, currency)}</p>
+              </div>
+              <strong>${window.LobosCart.formatMoney(item.lineTotal, currency)}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+      <div class="admin-order-totals">
+        <p><span>Subtotal</span><strong>${window.LobosCart.formatMoney(order.subtotalAmount, currency)}</strong></p>
+        <p><span>Shipping</span><strong>${window.LobosCart.formatMoney(order.shippingAmount, currency)}</strong></p>
+        <p><span>Tax</span><strong>${window.LobosCart.formatMoney(order.taxAmount, currency)}</strong></p>
+        <p class="admin-order-total"><span>Total</span><strong>${window.LobosCart.formatMoney(order.totalAmount, currency)}</strong></p>
+      </div>
+    </section>
+  `;
+}
+
+async function toggleOrderDetails(orderId, toggleButton) {
+  const detailContainer = adminOrders?.querySelector(`[data-order-detail="${orderId}"]`);
+
+  if (!detailContainer) {
+    return;
+  }
+
+  if (expandedOrderDetails.has(orderId)) {
+    expandedOrderDetails.delete(orderId);
+    detailContainer.hidden = true;
+    detailContainer.innerHTML = "";
+    if (toggleButton) {
+      toggleButton.textContent = "View details";
+    }
+    return;
+  }
+
+  detailContainer.hidden = false;
+  detailContainer.innerHTML = '<p class="muted">Loading order details...</p>';
+
+  try {
+    const data = await fetchAdminJson(`/api/admin/orders/${orderId}`);
+    const markup = renderOrderDetailMarkup(data.order);
+    expandedOrderDetails.set(orderId, markup);
+    detailContainer.innerHTML = markup;
+    if (toggleButton) {
+      toggleButton.textContent = "Hide details";
+    }
+  } catch (error) {
+    detailContainer.innerHTML = `<p class="page-status is-error">${error.message || "Could not load order details."}</p>`;
+  }
 }
 
 function renderUsers(users) {
@@ -247,6 +347,22 @@ if (adminOrders && adminUsers) {
         button.disabled = false;
       }
     }
+  });
+
+  adminOrders.addEventListener("click", async (event) => {
+    const toggleButton = event.target.closest("[data-order-toggle]");
+
+    if (!toggleButton) {
+      return;
+    }
+
+    const orderId = Number.parseInt(toggleButton.dataset.orderId, 10);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    await toggleOrderDetails(orderId, toggleButton);
   });
 
   adminUsers.addEventListener("submit", async (event) => {

@@ -352,6 +352,31 @@ function formatCurrency(amount, currency = SHOP_CURRENCY) {
   }
 }
 
+function buildOrderResponse(order, items = []) {
+  return {
+    id: order.id,
+    checkoutSessionId: order.stripe_checkout_session_id,
+    paymentStatus: order.payment_status,
+    fulfillmentStatus: order.fulfillment_status,
+    customerEmail: order.customer_email,
+    customerName: order.customer_name,
+    phone: order.phone,
+    shippingAddress: order.shipping_address_json,
+    subtotalAmount: Number(order.subtotal_amount),
+    shippingAmount: Number(order.shipping_amount),
+    taxAmount: Number(order.tax_amount),
+    totalAmount: Number(order.total_amount),
+    currency: order.currency,
+    createdAt: order.created_at,
+    items: items.map((item) => ({
+      productName: item.product_name,
+      unitAmount: Number(item.unit_amount),
+      quantity: Number(item.quantity),
+      lineTotal: Number(item.line_total),
+    })),
+  };
+}
+
 function getStockStatus(stockQuantity) {
   if (stockQuantity <= 0) {
     return "out_of_stock";
@@ -732,28 +757,7 @@ app.get("/api/orders/checkout-session/:sessionId", async (req, res) => {
     );
 
     res.json({
-      order: {
-        id: order.id,
-        checkoutSessionId: order.stripe_checkout_session_id,
-        paymentStatus: order.payment_status,
-        fulfillmentStatus: order.fulfillment_status,
-        customerEmail: order.customer_email,
-        customerName: order.customer_name,
-        phone: order.phone,
-        shippingAddress: order.shipping_address_json,
-        subtotalAmount: Number(order.subtotal_amount),
-        shippingAmount: Number(order.shipping_amount),
-        taxAmount: Number(order.tax_amount),
-        totalAmount: Number(order.total_amount),
-        currency: order.currency,
-        createdAt: order.created_at,
-        items: itemsResult.rows.map((item) => ({
-          productName: item.product_name,
-          unitAmount: Number(item.unit_amount),
-          quantity: Number(item.quantity),
-          lineTotal: Number(item.line_total),
-        })),
-      },
+      order: buildOrderResponse(order, itemsResult.rows),
     });
   } catch (error) {
     handleShopError(error, res);
@@ -1005,6 +1009,41 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   } catch (error) {
     console.error("Admin orders error:", error);
     res.status(500).json({ error: "Could not load admin orders" });
+  }
+});
+
+app.get("/api/admin/orders/:id", requireAdmin, async (req, res) => {
+  try {
+    const orderId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: "Invalid order id" });
+    }
+
+    const orderResult = await pool.query(
+      `SELECT *
+       FROM orders
+       WHERE id = $1
+       LIMIT 1`,
+      [orderId],
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const itemsResult = await pool.query(
+      `SELECT product_name, unit_amount, quantity, line_total
+       FROM order_items
+       WHERE order_id = $1
+       ORDER BY id ASC`,
+      [orderId],
+    );
+
+    res.json({ order: buildOrderResponse(orderResult.rows[0], itemsResult.rows) });
+  } catch (error) {
+    console.error("Admin order detail error:", error);
+    res.status(500).json({ error: "Could not load order details" });
   }
 });
 
