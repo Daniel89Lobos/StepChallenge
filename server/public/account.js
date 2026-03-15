@@ -8,6 +8,7 @@ const accountRegisterForm = document.getElementById("accountRegisterForm");
 const accountLoginButton = document.getElementById("accountLoginButton");
 const accountRegisterButton = document.getElementById("accountRegisterButton");
 const accountLogoutButton = document.getElementById("accountLogoutButton");
+const accountAdminLink = document.getElementById("accountAdminLink");
 
 function showAccountNotice(message, type = "error") {
   if (!accountNotice) {
@@ -52,6 +53,10 @@ function renderGuestPanels() {
   accountProfilePanel.hidden = true;
   accountLoginForm?.reset();
   accountRegisterForm?.reset();
+
+  if (accountAdminLink) {
+    accountAdminLink.hidden = true;
+  }
 }
 
 function renderProfilePanel(user) {
@@ -64,6 +69,10 @@ function renderProfilePanel(user) {
   accountProfilePanel.hidden = false;
   accountProfileHeading.textContent = `Welcome, ${user.username}`;
   accountProfileUsername.textContent = user.username || "-";
+
+  if (accountAdminLink) {
+    accountAdminLink.hidden = !(user.is_admin || user.isAdmin);
+  }
 }
 
 function setAccountLoading(button, isLoading, idleText, busyText) {

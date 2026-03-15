@@ -85,6 +85,12 @@ function getAccountLinkLabel(user) {
   return `Hi, ${shortName}`;
 }
 
+function updateAdminLinks(user) {
+  document.querySelectorAll("[data-admin-link]").forEach((link) => {
+    link.hidden = !user?.isAdmin;
+  });
+}
+
 function updateAccountLinks(user) {
   document.querySelectorAll("[data-account-link]").forEach((link) => {
     link.textContent = getAccountLinkLabel(user);
@@ -129,6 +135,7 @@ async function fetchAuthState() {
   return {
     userId: Number(data.userId),
     username: data.username || null,
+    isAdmin: Boolean(data.isAdmin),
   };
 }
 
@@ -138,12 +145,14 @@ async function refreshAuthState() {
       .then((user) => {
         authStateCache = user ? { ...user } : null;
         updateAccountLinks(authStateCache);
+        updateAdminLinks(authStateCache);
         emitAuthUpdate(authStateCache);
         return authStateCache;
       })
       .catch(() => {
         authStateCache = null;
         updateAccountLinks(null);
+        updateAdminLinks(null);
         emitAuthUpdate(null);
         return null;
       })
@@ -618,4 +627,5 @@ window.addEventListener("focus", () => {
   window.LobosCart.refresh().catch(() => {});
 });
 updateAccountLinks(null);
+updateAdminLinks(null);
 syncCartCount();

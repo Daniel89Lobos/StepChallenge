@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | Lobos Shop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Lobos Shop</a>
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">Menu</button>
+      <nav id="siteNav" class="site-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+        <a class="active" href="admin.html" data-admin-link hidden>Admin</a>
+        <a href="account.html" data-account-link>Login</a>
+        <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="content-panel">
+        <h1>Admin overview</h1>
+        <p>Track pending orders, review account growth, and update user accounts from one place.</p>
+      </section>
+
+      <p id="adminNotice" class="page-status" hidden></p>
+
+      <section id="adminStats" class="admin-stats">
+        <article class="admin-stat-card">
+          <p class="eyebrow">Accounts</p>
+          <h2 id="adminTotalUsers">-</h2>
+          <p class="muted">Total created accounts</p>
+        </article>
+        <article class="admin-stat-card">
+          <p class="eyebrow">Admins</p>
+          <h2 id="adminAdminUsers">-</h2>
+          <p class="muted">Accounts with admin access</p>
+        </article>
+        <article class="admin-stat-card">
+          <p class="eyebrow">Pending orders</p>
+          <h2 id="adminPendingOrders">-</h2>
+          <p class="muted">Orders still needing action</p>
+        </article>
+        <article class="admin-stat-card">
+          <p class="eyebrow">Total orders</p>
+          <h2 id="adminTotalOrders">-</h2>
+          <p class="muted">Orders recorded in the shop</p>
+        </article>
+      </section>
+
+      <section class="admin-layout">
+        <section class="content-panel">
+          <div class="admin-section-heading">
+            <div>
+              <p class="eyebrow">Fulfillment</p>
+              <h2>Pending orders</h2>
+            </div>
+            <button id="refreshOrdersButton" class="btn btn-secondary" type="button">Refresh</button>
+          </div>
+          <div id="adminOrders" class="admin-list"></div>
+        </section>
+
+        <section class="content-panel">
+          <div class="admin-section-heading">
+            <div>
+              <p class="eyebrow">Accounts</p>
+              <h2>Customers and admins</h2>
+            </div>
+            <button id="refreshUsersButton" class="btn btn-secondary" type="button">Refresh</button>
+          </div>
+          <div id="adminUsers" class="admin-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Lobos Shop</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

@@ -301,6 +301,41 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+async function loadSessionUser(userId, client = pool) {
+  const result = await client.query(
+    "SELECT id, username, group_name, is_admin FROM users WHERE id = $1 LIMIT 1",
+    [userId],
+  );
+
+  return result.rows[0] || null;
+}
+
+async function requireAdmin(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const user = await loadSessionUser(req.session.userId);
+
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    if (!user.is_admin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    req.currentUser = user;
+    req.session.username = user.username;
+    req.session.isAdmin = true;
+    next();
+  } catch (error) {
+    console.error("Admin auth error:", error);
+    res.status(500).json({ error: "Could not verify admin access" });
+  }
+}
+
 function parseMinorAmount(value) {
   const parsed = Number.parseInt(String(value || "0"), 10);
   return Number.isNaN(parsed) ? 0 : parsed;
@@ -725,7 +760,7 @@ app.get("/api/orders/checkout-session/:sessionId", async (req, res) => {
   }
 });
 
-app.get("/api/orders", requireAuth, async (req, res) => {
+app.get("/api/orders", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, customer_email, payment_status, fulfillment_status, total_amount, created_at
@@ -773,7 +808,7 @@ app.post("/api/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      "INSERT INTO users (username, password, group_name) VALUES ($1, $2, $3) RETURNING id, username, group_name",
+      "INSERT INTO users (username, password, group_name) VALUES ($1, $2, $3) RETURNING id, username, group_name, is_admin",
       [normalizedUsername, hashedPassword, normalizedGroup.toUpperCase()],
     );
 
@@ -798,7 +833,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT id, username, password, group_name FROM users WHERE username = $1",
+      "SELECT id, username, password, group_name, is_admin FROM users WHERE username = $1",
       [username.trim()],
     );
 
@@ -815,6 +850,7 @@ app.post("/api/login", async (req, res) => {
 
     req.session.userId = user.id;
     req.session.username = user.username;
+    req.session.isAdmin = Boolean(user.is_admin);
 
     res.json({
       message: "Login successful",
@@ -822,6 +858,7 @@ app.post("/api/login", async (req, res) => {
         id: user.id,
         username: user.username,
         group: user.group_name,
+        isAdmin: Boolean(user.is_admin),
       },
     });
   } catch (error) {
@@ -842,16 +879,15 @@ app.post("/api/logout", (req, res) => {
 
 app.get("/api/user/profile", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT id, username, group_name FROM users WHERE id = $1",
-      [req.session.userId],
-    );
+    const user = await loadSessionUser(req.session.userId);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ user: result.rows[0] });
+    req.session.username = user.username;
+    req.session.isAdmin = Boolean(user.is_admin);
+    res.json({ user });
   } catch (error) {
     console.error("Profile error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -902,16 +938,250 @@ app.put("/api/user/group", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/auth/check", (req, res) => {
-  if (req.session.userId) {
-    return res.json({
-      authenticated: true,
-      userId: req.session.userId,
-      username: req.session.username,
+app.get("/api/admin/summary", requireAdmin, async (req, res) => {
+  try {
+    const [userStats, orderStats] = await Promise.all([
+      pool.query(
+        `SELECT
+           COUNT(*)::int AS total_users,
+           COUNT(*) FILTER (WHERE is_admin)::int AS admin_users
+         FROM users`,
+      ),
+      pool.query(
+        `SELECT
+           COUNT(*)::int AS total_orders,
+           COUNT(*) FILTER (WHERE fulfillment_status NOT IN ('fulfilled', 'cancelled'))::int AS pending_orders
+         FROM orders`,
+      ),
+    ]);
+
+    res.json({
+      stats: {
+        totalUsers: userStats.rows[0].total_users,
+        adminUsers: userStats.rows[0].admin_users,
+        totalOrders: orderStats.rows[0].total_orders,
+        pendingOrders: orderStats.rows[0].pending_orders,
+      },
     });
+  } catch (error) {
+    console.error("Admin summary error:", error);
+    res.status(500).json({ error: "Could not load admin summary" });
+  }
+});
+
+app.get("/api/admin/orders", requireAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || "pending").trim().toLowerCase();
+    const params = [];
+    let whereClause = "";
+
+    if (status === "pending") {
+      whereClause = "WHERE o.fulfillment_status NOT IN ('fulfilled', 'cancelled')";
+    } else if (status !== "all") {
+      params.push(status);
+      whereClause = `WHERE o.fulfillment_status = $${params.length}`;
+    }
+
+    const result = await pool.query(
+      `SELECT
+         o.id,
+         o.customer_email,
+         o.customer_name,
+         o.payment_status,
+         o.fulfillment_status,
+         o.total_amount,
+         o.created_at,
+         COUNT(oi.id)::int AS item_count
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       ${whereClause}
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 100`,
+      params,
+    );
+
+    res.json({ orders: result.rows });
+  } catch (error) {
+    console.error("Admin orders error:", error);
+    res.status(500).json({ error: "Could not load admin orders" });
+  }
+});
+
+app.put("/api/admin/orders/:id", requireAdmin, async (req, res) => {
+  try {
+    const allowedStatuses = new Set(["paid", "fulfilled", "inventory_issue", "cancelled"]);
+    const fulfillmentStatus = String(req.body.fulfillmentStatus || "").trim().toLowerCase();
+
+    if (!allowedStatuses.has(fulfillmentStatus)) {
+      return res.status(400).json({ error: "Invalid fulfillment status" });
+    }
+
+    const result = await pool.query(
+      `UPDATE orders
+       SET fulfillment_status = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, fulfillment_status, updated_at`,
+      [fulfillmentStatus, Number.parseInt(req.params.id, 10)],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.json({ order: result.rows[0] });
+  } catch (error) {
+    console.error("Admin order update error:", error);
+    res.status(500).json({ error: "Could not update order" });
+  }
+});
+
+app.get("/api/admin/users", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, group_name, is_admin, created_at
+       FROM users
+       ORDER BY created_at DESC, id DESC
+       LIMIT 200`,
+    );
+
+    res.json({ users: result.rows });
+  } catch (error) {
+    console.error("Admin users error:", error);
+    res.status(500).json({ error: "Could not load users" });
+  }
+});
+
+app.put("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  try {
+    const userId = Number.parseInt(req.params.id, 10);
+    const nextUsername = String(req.body.username || "").trim();
+    const nextIsAdmin = Boolean(req.body.isAdmin);
+    const nextPassword = String(req.body.newPassword || "");
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+
+    if (!nextUsername || nextUsername.length < 3) {
+      return res.status(400).json({ error: "Username must be at least 3 characters" });
+    }
+
+    if (nextPassword && nextPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const existingUserResult = await client.query(
+        "SELECT id, username, group_name, is_admin FROM users WHERE id = $1 FOR UPDATE",
+        [userId],
+      );
+
+      if (existingUserResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const existingUser = existingUserResult.rows[0];
+      const duplicateUser = await client.query(
+        "SELECT id FROM users WHERE username = $1 AND id <> $2 LIMIT 1",
+        [nextUsername, userId],
+      );
+
+      if (duplicateUser.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      if (existingUser.is_admin && !nextIsAdmin) {
+        const adminCount = await client.query(
+          "SELECT COUNT(*)::int AS count FROM users WHERE is_admin = true",
+        );
+
+        if (adminCount.rows[0].count <= 1) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ error: "At least one admin account is required" });
+        }
+      }
+
+      const nextGroupName =
+        existingUser.group_name === existingUser.username.toUpperCase()
+          ? nextUsername.toUpperCase()
+          : existingUser.group_name;
+
+      await client.query(
+        `UPDATE users
+         SET username = $1,
+             group_name = $2,
+             is_admin = $3
+         WHERE id = $4`,
+        [nextUsername, nextGroupName, nextIsAdmin, userId],
+      );
+
+      if (nextPassword) {
+        const hashedPassword = await bcrypt.hash(nextPassword, 10);
+        await client.query("UPDATE users SET password = $1 WHERE id = $2", [
+          hashedPassword,
+          userId,
+        ]);
+      }
+
+      const updatedUserResult = await client.query(
+        "SELECT id, username, group_name, is_admin, created_at FROM users WHERE id = $1",
+        [userId],
+      );
+
+      await client.query("COMMIT");
+
+      if (req.session.userId === userId) {
+        req.session.username = updatedUserResult.rows[0].username;
+        req.session.isAdmin = Boolean(updatedUserResult.rows[0].is_admin);
+      }
+
+      res.json({ user: updatedUserResult.rows[0] });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Admin user update error:", error);
+    res.status(500).json({ error: "Could not update user" });
+  }
+});
+
+app.get("/api/auth/check", async (req, res) => {
+  if (!req.session.userId) {
+    return res.json({ authenticated: false });
   }
 
-  return res.json({ authenticated: false });
+  try {
+    const user = await loadSessionUser(req.session.userId);
+
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.json({ authenticated: false });
+    }
+
+    req.session.username = user.username;
+    req.session.isAdmin = Boolean(user.is_admin);
+
+    return res.json({
+      authenticated: true,
+      userId: user.id,
+      username: user.username,
+      isAdmin: Boolean(user.is_admin),
+    });
+  } catch (error) {
+    console.error("Auth check error:", error);
+    return res.status(500).json({ error: "Could not check auth state" });
+  }
 });
 
 app.use((err, req, res, next) => {

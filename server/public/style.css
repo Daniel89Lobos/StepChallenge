@@ -559,6 +559,83 @@ body.modal-open {
   gap: 1rem;
 }
 
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-stat-card,
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.admin-stat-card {
+  padding: 1.1rem;
+}
+
+.admin-stat-card h2,
+.admin-stat-card p,
+.admin-card h3,
+.admin-card p {
+  margin: 0;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-card {
+  padding: 1rem;
+}
+
+.admin-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-inline-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+}
+
 .auth-panel {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -783,7 +860,8 @@ textarea {
 @media (max-width: 860px) {
   .split-grid,
   .cards,
-  .auth-grid {
+  .auth-grid,
+  .admin-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -816,6 +894,7 @@ textarea {
   .split-grid,
    .cards,
    .auth-grid,
+   .admin-stats,
    .cart-layout,
    .checkout-grid,
    .cart-row {
@@ -831,6 +910,13 @@ textarea {
    }
 
    .account-actions {
+    flex-direction: column;
+   }
+
+   .admin-section-heading,
+   .admin-card-header,
+   .admin-meta-grid {
+    grid-template-columns: 1fr;
     flex-direction: column;
    }
 
