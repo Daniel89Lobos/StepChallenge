@@ -258,8 +258,8 @@ async function loginAndContinueCheckout(username, password) {
   await startCheckout(getCheckoutState());
 }
 
-async function createAccountAndContinueCheckout(username, password, group) {
-  await window.LobosAuth.registerAndLogin({ username, password, group });
+async function createAccountAndContinueCheckout(username, password) {
+  await window.LobosAuth.registerAndLogin({ username, password });
   renderCart();
   closeCheckoutGate();
   await startCheckout(getCheckoutState());
@@ -536,7 +536,6 @@ if (checkoutGate) {
     const formData = new FormData(checkoutRegisterForm);
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
-    const group = String(formData.get("group") || "").trim();
 
     if (!username || !password) {
       showCheckoutRegisterNotice("Choose a username and password to create your account.");
@@ -545,7 +544,7 @@ if (checkoutGate) {
 
     try {
       setRegisterCheckoutLoading(true);
-      await createAccountAndContinueCheckout(username, password, group);
+      await createAccountAndContinueCheckout(username, password);
     } catch (error) {
       showCheckoutRegisterNotice(error.message || "Could not create your account.");
     } finally {

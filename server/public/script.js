@@ -76,14 +76,25 @@ function mergeCartItems(...carts) {
   return sanitizeCart(carts.flat());
 }
 
+function getAccountLinkLabel(user) {
+  if (!user?.username) {
+    return "Login";
+  }
+
+  const shortName = user.username.length > 12 ? `${user.username.slice(0, 12)}...` : user.username;
+  return `Hi, ${shortName}`;
+}
+
 function updateAccountLinks(user) {
   document.querySelectorAll("[data-account-link]").forEach((link) => {
-    link.textContent = user ? "Account" : "Login";
+    link.textContent = getAccountLinkLabel(user);
     link.href = "account.html";
 
     if (user?.username) {
+      link.setAttribute("aria-label", `Account for ${user.username}`);
       link.title = `Signed in as ${user.username}`;
     } else {
+      link.setAttribute("aria-label", "Login or create account");
       link.removeAttribute("title");
     }
   });
@@ -180,7 +191,7 @@ window.LobosAuth = {
     return data.user;
   },
 
-  async register({ username, password, group }) {
+  async register({ username, password }) {
     const response = await fetch("/api/register", {
       method: "POST",
       headers: {
@@ -189,7 +200,6 @@ window.LobosAuth = {
       body: JSON.stringify({
         username,
         password,
-        group: group || username,
       }),
     });
 
@@ -202,8 +212,8 @@ window.LobosAuth = {
     return data.user;
   },
 
-  async registerAndLogin({ username, password, group }) {
-    await window.LobosAuth.register({ username, password, group });
+  async registerAndLogin({ username, password }) {
+    await window.LobosAuth.register({ username, password });
     return window.LobosAuth.login(username, password);
   },
 

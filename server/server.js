@@ -739,12 +739,14 @@ app.get("/api/orders", requireAuth, async (req, res) => {
 app.post("/api/register", async (req, res) => {
   try {
     const { username, password, group } = req.body;
+    const normalizedUsername = String(username || "").trim();
+    const normalizedGroup = String(group || "").trim() || normalizedUsername;
 
-    if (!username || !password || !group) {
-      return res.status(400).json({ error: "All fields are required" });
+    if (!normalizedUsername || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
     }
 
-    if (username.length < 3) {
+    if (normalizedUsername.length < 3) {
       return res
         .status(400)
         .json({ error: "Username must be at least 3 characters" });
@@ -758,7 +760,7 @@ app.post("/api/register", async (req, res) => {
 
     const existingUser = await pool.query(
       "SELECT id FROM users WHERE username = $1",
-      [username.trim()],
+      [normalizedUsername],
     );
 
     if (existingUser.rows.length > 0) {
@@ -768,7 +770,7 @@ app.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       "INSERT INTO users (username, password, group_name) VALUES ($1, $2, $3) RETURNING id, username, group_name",
-      [username.trim(), hashedPassword, group.trim().toUpperCase()],
+      [normalizedUsername, hashedPassword, normalizedGroup.toUpperCase()],
     );
 
     res.status(201).json({

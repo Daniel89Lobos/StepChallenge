@@ -67,6 +67,13 @@ body {
   transition: all 0.2s ease;
 }
 
+.site-nav a[data-account-link] {
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .site-nav a.active,
 .site-nav a:hover {
   color: #ffffff;

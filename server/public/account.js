@@ -3,7 +3,6 @@ const guestAccountPanels = document.getElementById("guestAccountPanels");
 const accountProfilePanel = document.getElementById("accountProfilePanel");
 const accountProfileHeading = document.getElementById("accountProfileHeading");
 const accountProfileUsername = document.getElementById("accountProfileUsername");
-const accountProfileGroup = document.getElementById("accountProfileGroup");
 const accountLoginForm = document.getElementById("accountLoginForm");
 const accountRegisterForm = document.getElementById("accountRegisterForm");
 const accountLoginButton = document.getElementById("accountLoginButton");
@@ -65,7 +64,6 @@ function renderProfilePanel(user) {
   accountProfilePanel.hidden = false;
   accountProfileHeading.textContent = `Welcome, ${user.username}`;
   accountProfileUsername.textContent = user.username || "-";
-  accountProfileGroup.textContent = user.group_name || user.group || "-";
 }
 
 function setAccountLoading(button, isLoading, idleText, busyText) {
@@ -133,7 +131,6 @@ if (guestAccountPanels && accountProfilePanel) {
     const formData = new FormData(accountRegisterForm);
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
-    const group = String(formData.get("group") || "").trim();
 
     if (!username || !password) {
       showAccountNotice("Choose a username and password to create your account.");
@@ -142,7 +139,7 @@ if (guestAccountPanels && accountProfilePanel) {
 
     try {
       setAccountLoading(accountRegisterButton, true, "Create account", "Creating account...");
-      await window.LobosAuth.registerAndLogin({ username, password, group });
+      await window.LobosAuth.registerAndLogin({ username, password });
       await refreshAccountPage();
       showAccountNotice("Your account is ready and you are now logged in.", "success");
     } catch (error) {
