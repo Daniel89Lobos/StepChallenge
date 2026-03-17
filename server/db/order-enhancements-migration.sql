@@ -1,0 +1,11 @@
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS tracking_number TEXT;
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS admin_note TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id
+  ON orders (user_id);

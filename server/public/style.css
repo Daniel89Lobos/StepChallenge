@@ -750,7 +750,7 @@ body.modal-open {
 
 .admin-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) auto;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 260px) auto;
   gap: 0.75rem;
   align-items: end;
   margin-bottom: 1rem;
@@ -922,6 +922,67 @@ body.modal-open {
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.account-orders-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.account-orders {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.account-order-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-soft);
+}
+
+.account-order-header,
+.account-order-meta,
+.account-order-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.account-order-header h4,
+.account-order-header p,
+.account-order-meta p,
+.account-order-item p {
+  margin: 0;
+}
+
+.account-order-meta {
+  flex-wrap: wrap;
+}
+
+.account-order-items {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.account-order-item {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-order-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.account-empty-state {
+  padding: 1rem 0;
 }
 
 .cart-row {
@@ -1187,10 +1248,13 @@ textarea {
     .admin-form-grid,
     .admin-product-toolbar,
     .admin-toolbar,
-    .admin-image-field {
+    .admin-image-field,
+    .account-order-header,
+    .account-order-meta,
+    .account-order-item {
      grid-template-columns: 1fr;
      flex-direction: column;
-    }
+     }
 
    .admin-pagination {
      flex-direction: column;

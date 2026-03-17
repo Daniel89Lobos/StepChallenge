@@ -27,11 +27,14 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   stripe_checkout_session_id TEXT NOT NULL UNIQUE,
   stripe_payment_intent_id TEXT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   payment_status TEXT NOT NULL,
   fulfillment_status TEXT NOT NULL DEFAULT 'paid',
   customer_email TEXT,
   customer_name TEXT,
   phone TEXT,
+  tracking_number TEXT,
+  admin_note TEXT,
   shipping_address_json JSONB,
   subtotal_amount INTEGER NOT NULL CHECK (subtotal_amount >= 0),
   shipping_amount INTEGER NOT NULL DEFAULT 0 CHECK (shipping_amount >= 0),
@@ -74,6 +77,9 @@ CREATE INDEX IF NOT EXISTS idx_products_active_category
 
 CREATE INDEX IF NOT EXISTS idx_orders_created_at
   ON orders (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_orders_user_id
+  ON orders (user_id);
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id
   ON order_items (order_id);

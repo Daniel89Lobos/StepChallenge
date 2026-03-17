@@ -21,6 +21,7 @@ const adminProductCategoryFilter = document.getElementById("adminProductCategory
 const adminProductStatusFilter = document.getElementById("adminProductStatusFilter");
 const adminProductResults = document.getElementById("adminProductResults");
 const adminProductPagination = document.getElementById("adminProductPagination");
+const adminOrderSearchInput = document.getElementById("adminOrderSearch");
 const adminOrderStatusFilter = document.getElementById("adminOrderStatusFilter");
 const adminOrderResults = document.getElementById("adminOrderResults");
 const adminUserSearchInput = document.getElementById("adminUserSearch");
@@ -49,6 +50,7 @@ const adminProductState = {
 const adminOrderState = {
   status: "pending",
   count: 0,
+  query: "",
 };
 
 const adminUserState = {
@@ -204,12 +206,14 @@ function getOrderStatusLabel(status) {
   return labels[status] || "orders";
 }
 
-function updateOrderResultsLabel(count, status) {
+function updateOrderResultsLabel(count, status, query = "") {
   if (!adminOrderResults) {
     return;
   }
 
-  adminOrderResults.textContent = `Showing ${count} ${getOrderStatusLabel(status)}.`;
+  adminOrderResults.textContent = query
+    ? `Showing ${count} ${getOrderStatusLabel(status)} for "${query}".`
+    : `Showing ${count} ${getOrderStatusLabel(status)}.`;
 }
 
 function renderOrders(orders) {
@@ -219,13 +223,13 @@ function renderOrders(orders) {
 
   const activeStatus = adminOrderState.status || "pending";
   adminOrderState.count = Array.isArray(orders) ? orders.length : 0;
-  updateOrderResultsLabel(adminOrderState.count, activeStatus);
+  updateOrderResultsLabel(adminOrderState.count, activeStatus, adminOrderState.query);
 
   if (!orders || orders.length === 0) {
     adminOrders.innerHTML = `
       <article class="empty-state">
         <h3>No ${escapeHtml(getOrderStatusLabel(activeStatus))}</h3>
-        <p>Try another order filter or check back after the next checkout.</p>
+        <p>${adminOrderState.query ? `No orders matched "${escapeHtml(adminOrderState.query)}".` : "Try another order filter or check back after the next checkout."}</p>
       </article>
     `;
     return;
@@ -247,17 +251,29 @@ function renderOrders(orders) {
             <p><strong>Items:</strong> ${order.item_count}</p>
             <p><strong>Total:</strong> ${window.LobosCart.formatMoney(order.total_amount)}</p>
             <p><strong>Created:</strong> ${formatAdminDate(order.created_at)}</p>
+            <p><strong>Tracking:</strong> ${escapeHtml(order.tracking_number || "Not assigned")}</p>
+            <p><strong>Last update:</strong> ${formatAdminDate(order.updated_at)}</p>
           </div>
           <form class="admin-inline-form" data-order-form data-order-id="${order.id}">
+            <div class="admin-form-grid">
+              <label>
+                Fulfillment status
+                <select name="fulfillmentStatus">
+                  ${["paid", "fulfilled", "inventory_issue", "cancelled"]
+                    .map(
+                      (status) => `<option value="${status}"${status === order.fulfillment_status ? " selected" : ""}>${status.replace(/_/g, " ")}</option>`,
+                    )
+                    .join("")}
+                </select>
+              </label>
+              <label>
+                Tracking number
+                <input name="trackingNumber" type="text" value="${escapeHtml(order.tracking_number || "")}" placeholder="Optional" />
+              </label>
+            </div>
             <label>
-              Fulfillment status
-              <select name="fulfillmentStatus">
-                ${["paid", "fulfilled", "inventory_issue", "cancelled"]
-                  .map(
-                    (status) => `<option value="${status}"${status === order.fulfillment_status ? " selected" : ""}>${status.replace(/_/g, " ")}</option>`,
-                  )
-                  .join("")}
-              </select>
+              Internal note
+              <textarea name="adminNote" placeholder="Optional admin-only note">${escapeHtml(order.admin_note || "")}</textarea>
             </label>
             <div class="admin-inline-actions">
               <button class="btn btn-secondary" type="submit">Update order</button>
@@ -300,6 +316,7 @@ function renderOrderDetailMarkup(order) {
         <p><strong>Name:</strong> ${escapeHtml(order.customerName || shipping.name || "Guest checkout")}</p>
         <p><strong>Email:</strong> ${escapeHtml(order.customerEmail || "-")}</p>
         <p><strong>Phone:</strong> ${escapeHtml(order.phone || shipping.phone || "-")}</p>
+        <p><strong>Tracking:</strong> ${escapeHtml(order.trackingNumber || "Not assigned")}</p>
       </section>
       <section>
         <h4>Shipping</h4>
@@ -1027,6 +1044,7 @@ function syncProductFilters() {
 
 function syncOrderFilters() {
   adminOrderState.status = String(adminOrderStatusFilter?.value || "pending");
+  adminOrderState.query = String(adminOrderSearchInput?.value || "").trim();
 }
 
 function updateProductCategoryControls() {
@@ -1056,7 +1074,15 @@ async function loadAdminSummary() {
 }
 
 async function loadAdminOrders() {
-  const data = await fetchAdminJson(`/api/admin/orders?status=${encodeURIComponent(adminOrderState.status)}`);
+  const params = new URLSearchParams({
+    status: adminOrderState.status,
+  });
+
+  if (adminOrderState.query) {
+    params.set("q", adminOrderState.query);
+  }
+
+  const data = await fetchAdminJson(`/api/admin/orders?${params.toString()}`);
   renderOrders(data.orders || []);
 }
 
@@ -1307,6 +1333,11 @@ function bindOrders() {
     });
   }
 
+  adminOrderSearchInput?.addEventListener("input", () => {
+    syncOrderFilters();
+    loadAdminOrders().catch((error) => showAdminNotice(error.message));
+  });
+
   refreshOrdersButton?.addEventListener("click", () => {
     loadAdminOrders().catch((error) => showAdminNotice(error.message));
   });
@@ -1333,6 +1364,8 @@ function bindOrders() {
         method: "PUT",
         body: JSON.stringify({
           fulfillmentStatus: String(formData.get("fulfillmentStatus") || ""),
+          trackingNumber: String(formData.get("trackingNumber") || "").trim(),
+          adminNote: String(formData.get("adminNote") || "").trim(),
         }),
       });
 

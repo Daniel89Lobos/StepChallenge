@@ -3,6 +3,7 @@ const guestAccountPanels = document.getElementById("guestAccountPanels");
 const accountProfilePanel = document.getElementById("accountProfilePanel");
 const accountProfileHeading = document.getElementById("accountProfileHeading");
 const accountProfileUsername = document.getElementById("accountProfileUsername");
+const accountOrders = document.getElementById("accountOrders");
 const accountLoginForm = document.getElementById("accountLoginForm");
 const accountRegisterForm = document.getElementById("accountRegisterForm");
 const accountLoginButton = document.getElementById("accountLoginButton");
@@ -30,6 +31,39 @@ function clearAccountNotice() {
   accountNotice.textContent = "";
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatAccountDate(value) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Date(value).toLocaleString("sv-SE");
+}
+
+function getOrderStatusClass(status) {
+  if (status === "fulfilled") {
+    return "in-stock";
+  }
+
+  if (status === "inventory_issue") {
+    return "low-stock";
+  }
+
+  if (status === "cancelled") {
+    return "out-of-stock";
+  }
+
+  return "";
+}
+
 async function fetchProfile() {
   const response = await fetch("/api/user/profile", {
     credentials: "include",
@@ -48,6 +82,24 @@ async function fetchProfile() {
   return data.user || null;
 }
 
+async function fetchUserOrders() {
+  const response = await fetch("/api/user/orders", {
+    credentials: "include",
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401) {
+    return [];
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Could not load your orders");
+  }
+
+  return Array.isArray(data.orders) ? data.orders : [];
+}
+
 function renderGuestPanels() {
   guestAccountPanels.hidden = false;
   accountProfilePanel.hidden = true;
@@ -56,6 +108,10 @@ function renderGuestPanels() {
 
   if (accountAdminLink) {
     accountAdminLink.hidden = true;
+  }
+
+  if (accountOrders) {
+    accountOrders.innerHTML = "";
   }
 }
 
@@ -73,6 +129,59 @@ function renderProfilePanel(user) {
   if (accountAdminLink) {
     accountAdminLink.hidden = !(user.is_admin || user.isAdmin);
   }
+}
+
+function renderOrderHistory(orders) {
+  if (!accountOrders) {
+    return;
+  }
+
+  if (!orders || orders.length === 0) {
+    accountOrders.innerHTML = `
+      <article class="empty-state account-empty-state">
+        <h4>No orders yet</h4>
+        <p>Orders placed while signed in will appear here with their status and shipping details.</p>
+      </article>
+    `;
+    return;
+  }
+
+  accountOrders.innerHTML = orders
+    .map(
+      (order) => `
+        <article class="account-order-card">
+          <div class="account-order-header">
+            <div>
+              <h4>Order #${order.id}</h4>
+              <p class="muted">Placed ${formatAccountDate(order.createdAt)}</p>
+            </div>
+            <span class="status-pill ${getOrderStatusClass(order.fulfillmentStatus)}">${escapeHtml(order.fulfillmentStatus.replace(/_/g, " "))}</span>
+          </div>
+          <div class="account-order-meta">
+            <p><strong>Total:</strong> ${window.LobosCart.formatMoney(order.totalAmount, order.currency)}</p>
+            <p><strong>Payment:</strong> ${escapeHtml(order.paymentStatus)}</p>
+            <p><strong>Items:</strong> ${order.items.length}</p>
+            <p><strong>Tracking:</strong> ${escapeHtml(order.trackingNumber || "Not assigned yet")}</p>
+          </div>
+          <section class="account-order-items">
+            ${order.items
+              .map(
+                (item) => `
+                  <div class="account-order-item">
+                    <div>
+                      <strong>${escapeHtml(item.productName)}</strong>
+                      <p class="muted">${item.quantity} x ${window.LobosCart.formatMoney(item.unitAmount, order.currency)}</p>
+                    </div>
+                    <strong>${window.LobosCart.formatMoney(item.lineTotal, order.currency)}</strong>
+                  </div>
+                `,
+              )
+              .join("")}
+          </section>
+        </article>
+      `,
+    )
+    .join("");
 }
 
 function setAccountLoading(button, isLoading, idleText, busyText) {
@@ -97,11 +206,24 @@ async function refreshAccountPage() {
     return;
   }
 
-  try {
-    const profile = await fetchProfile();
-    renderProfilePanel(profile || sessionUser);
-  } catch (error) {
-    showAccountNotice(error.message);
+  const [profileResult, ordersResult] = await Promise.allSettled([
+    fetchProfile(),
+    fetchUserOrders(),
+  ]);
+
+  const profileUser = profileResult.status === "fulfilled" ? profileResult.value || sessionUser : sessionUser;
+  renderProfilePanel(profileUser);
+
+  if (ordersResult.status === "fulfilled") {
+    renderOrderHistory(ordersResult.value);
+  } else {
+    renderOrderHistory([]);
+  }
+
+  if (profileResult.status === "rejected") {
+    showAccountNotice(profileResult.reason?.message || "Could not load your account.");
+  } else if (ordersResult.status === "rejected") {
+    showAccountNotice(ordersResult.reason?.message || "Could not load your orders.");
   }
 }
 

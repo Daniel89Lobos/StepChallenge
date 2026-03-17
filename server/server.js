@@ -19,6 +19,7 @@ const SHIPPING_LABEL = "Sweden standard shipping";
 const STANDARD_SHIPPING_AMOUNT = 4900;
 const CART_METADATA_KEY = "cart_items";
 const SHIPPING_METADATA_KEY = "shipping_amount";
+const ORDER_USER_METADATA_KEY = "user_id";
 const LOW_STOCK_THRESHOLD = 5;
 const PRODUCT_CATEGORIES = ["books", "calendars", "amigurumi"];
 const PRODUCT_CATEGORY_SET = new Set(PRODUCT_CATEGORIES);
@@ -253,6 +254,19 @@ app.post(
 
       const shippingDetails = checkoutSession.shipping_details || {};
       const customerDetails = checkoutSession.customer_details || {};
+      const metadataUserId = Number.parseInt(
+        String(checkoutSession.metadata?.[ORDER_USER_METADATA_KEY] || ""),
+        10,
+      );
+      let orderUserId = null;
+
+      if (Number.isInteger(metadataUserId) && metadataUserId > 0) {
+        const userResult = await client.query("SELECT id FROM users WHERE id = $1 LIMIT 1", [
+          metadataUserId,
+        ]);
+        orderUserId = userResult.rows[0]?.id || null;
+      }
+
       const shippingAddress = JSON.stringify({
         name: shippingDetails.name || customerDetails.name || null,
         phone: customerDetails.phone || null,
@@ -263,11 +277,14 @@ app.post(
         `INSERT INTO orders (
           stripe_checkout_session_id,
           stripe_payment_intent_id,
+          user_id,
           payment_status,
           fulfillment_status,
           customer_email,
           customer_name,
           phone,
+          tracking_number,
+          admin_note,
           shipping_address_json,
           subtotal_amount,
           shipping_amount,
@@ -275,16 +292,19 @@ app.post(
           total_amount,
           currency
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15
         ) RETURNING id`,
         [
           checkoutSession.id,
           checkoutSession.payment_intent || null,
+          orderUserId,
           checkoutSession.payment_status || "paid",
           inventoryIssue ? "inventory_issue" : "paid",
           customerDetails.email || checkoutSession.customer_email || null,
           shippingDetails.name || customerDetails.name || null,
           customerDetails.phone || null,
+          null,
+          null,
           shippingAddress,
           subtotalAmount,
           shippingAmount,
@@ -455,11 +475,14 @@ function buildOrderResponse(order, items = []) {
   return {
     id: order.id,
     checkoutSessionId: order.stripe_checkout_session_id,
+    userId: order.user_id ? Number(order.user_id) : null,
     paymentStatus: order.payment_status,
     fulfillmentStatus: order.fulfillment_status,
     customerEmail: order.customer_email,
     customerName: order.customer_name,
     phone: order.phone,
+    trackingNumber: order.tracking_number,
+    adminNote: order.admin_note,
     shippingAddress: order.shipping_address_json,
     subtotalAmount: Number(order.subtotal_amount),
     shippingAmount: Number(order.shipping_amount),
@@ -934,6 +957,7 @@ app.post("/api/checkout/session", async (req, res) => {
           })),
         ),
         [SHIPPING_METADATA_KEY]: String(shippingAmount),
+        ...(req.session.userId ? { [ORDER_USER_METADATA_KEY]: String(req.session.userId) } : {}),
       },
     });
 
@@ -1200,15 +1224,36 @@ app.get("/api/admin/summary", requireAdmin, async (req, res) => {
 app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   try {
     const status = String(req.query.status || "pending").trim().toLowerCase();
+    const query = String(req.query.q || "").trim();
     const params = [];
-    let whereClause = "";
+    const whereClauses = [];
 
     if (status === "pending") {
-      whereClause = "WHERE o.fulfillment_status NOT IN ('fulfilled', 'cancelled')";
+      whereClauses.push("o.fulfillment_status NOT IN ('fulfilled', 'cancelled')");
     } else if (status !== "all") {
       params.push(status);
-      whereClause = `WHERE o.fulfillment_status = $${params.length}`;
+      whereClauses.push(`o.fulfillment_status = $${params.length}`);
     }
+
+    if (query) {
+      if (/^\d+$/.test(query)) {
+        params.push(Number.parseInt(query, 10));
+        const exactIdIndex = params.length;
+        params.push(`%${query}%`);
+        const partialIndex = params.length;
+        whereClauses.push(
+          `(o.id = $${exactIdIndex} OR CAST(o.id AS TEXT) ILIKE $${partialIndex} OR COALESCE(o.customer_name, '') ILIKE $${partialIndex} OR COALESCE(o.customer_email, '') ILIKE $${partialIndex} OR COALESCE(o.tracking_number, '') ILIKE $${partialIndex})`,
+        );
+      } else {
+        params.push(`%${query}%`);
+        const searchIndex = params.length;
+        whereClauses.push(
+          `(CAST(o.id AS TEXT) ILIKE $${searchIndex} OR COALESCE(o.customer_name, '') ILIKE $${searchIndex} OR COALESCE(o.customer_email, '') ILIKE $${searchIndex} OR COALESCE(o.tracking_number, '') ILIKE $${searchIndex})`,
+        );
+      }
+    }
+
+    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
     const result = await pool.query(
       `SELECT
@@ -1217,8 +1262,11 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
          o.customer_name,
          o.payment_status,
          o.fulfillment_status,
+         o.tracking_number,
+         o.admin_note,
          o.total_amount,
          o.created_at,
+         o.updated_at,
          COUNT(oi.id)::int AS item_count
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id
@@ -1274,19 +1322,36 @@ app.get("/api/admin/orders/:id", requireAdmin, async (req, res) => {
 app.put("/api/admin/orders/:id", requireAdmin, async (req, res) => {
   try {
     const allowedStatuses = new Set(["paid", "fulfilled", "inventory_issue", "cancelled"]);
+    const orderId = Number.parseInt(req.params.id, 10);
     const fulfillmentStatus = String(req.body.fulfillmentStatus || "").trim().toLowerCase();
+    const trackingNumber = String(req.body.trackingNumber || "").trim() || null;
+    const adminNote = String(req.body.adminNote || "").trim() || null;
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: "Invalid order id" });
+    }
 
     if (!allowedStatuses.has(fulfillmentStatus)) {
       return res.status(400).json({ error: "Invalid fulfillment status" });
     }
 
+    if (trackingNumber && trackingNumber.length > 120) {
+      return res.status(400).json({ error: "Tracking number must be 120 characters or fewer" });
+    }
+
+    if (adminNote && adminNote.length > 2000) {
+      return res.status(400).json({ error: "Admin note must be 2000 characters or fewer" });
+    }
+
     const result = await pool.query(
       `UPDATE orders
        SET fulfillment_status = $1,
+           tracking_number = $2,
+           admin_note = $3,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING id, fulfillment_status, updated_at`,
-      [fulfillmentStatus, Number.parseInt(req.params.id, 10)],
+       WHERE id = $4
+       RETURNING id, fulfillment_status, tracking_number, admin_note, updated_at`,
+      [fulfillmentStatus, trackingNumber, adminNote, orderId],
     );
 
     if (result.rows.length === 0) {
@@ -1297,6 +1362,53 @@ app.put("/api/admin/orders/:id", requireAdmin, async (req, res) => {
   } catch (error) {
     console.error("Admin order update error:", error);
     res.status(500).json({ error: "Could not update order" });
+  }
+});
+
+app.get("/api/user/orders", requireAuth, async (req, res) => {
+  try {
+    const ordersResult = await pool.query(
+      `SELECT *
+       FROM orders
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.session.userId],
+    );
+
+    if (ordersResult.rows.length === 0) {
+      return res.json({ orders: [] });
+    }
+
+    const orderIds = ordersResult.rows.map((order) => Number(order.id));
+    const itemsResult = await pool.query(
+      `SELECT order_id, product_name, unit_amount, quantity, line_total
+       FROM order_items
+       WHERE order_id = ANY($1::int[])
+       ORDER BY order_id DESC, id ASC`,
+      [orderIds],
+    );
+
+    const itemsByOrderId = new Map();
+
+    for (const item of itemsResult.rows) {
+      const orderId = Number(item.order_id);
+
+      if (!itemsByOrderId.has(orderId)) {
+        itemsByOrderId.set(orderId, []);
+      }
+
+      itemsByOrderId.get(orderId).push(item);
+    }
+
+    res.json({
+      orders: ordersResult.rows.map((order) =>
+        buildOrderResponse(order, itemsByOrderId.get(Number(order.id)) || []),
+      ),
+    });
+  } catch (error) {
+    console.error("User orders error:", error);
+    res.status(500).json({ error: "Could not load your orders" });
   }
 });
 
