@@ -62,6 +62,14 @@ function getCustomerOrderStatus(status) {
   };
 }
 
+function getCustomerPaymentLabel(status) {
+  if (status === "paid") {
+    return "Payment received";
+  }
+
+  return String(status || "-").replace(/_/g, " ");
+}
+
 function renderOrder(order) {
   if (!orderSummary) {
     return;
@@ -80,7 +88,7 @@ function renderOrder(order) {
   orderSummary.innerHTML = `
     <section class="order-card">
       <h2>Order #${order.id}</h2>
-      <p class="muted">Payment: ${order.paymentStatus}</p>
+      <p class="muted">Payment: ${getCustomerPaymentLabel(order.paymentStatus)}</p>
       <p class="muted">Status: ${customerStatus.label}</p>
       <p class="muted">${customerStatus.detail}</p>
       <p class="muted">Email: ${order.customerEmail || "Captured in Stripe"}</p>

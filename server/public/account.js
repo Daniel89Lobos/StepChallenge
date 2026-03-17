@@ -103,6 +103,14 @@ function getCustomerOrderStatus(status) {
   };
 }
 
+function getCustomerPaymentLabel(status) {
+  if (status === "paid") {
+    return "Payment received";
+  }
+
+  return String(status || "-").replace(/_/g, " ");
+}
+
 async function fetchProfile() {
   const response = await fetch("/api/user/profile", {
     credentials: "include",
@@ -201,7 +209,7 @@ function renderOrderHistory(orders) {
           </div>
           <div class="account-order-meta">
             <p><strong>Total:</strong> ${window.LobosCart.formatMoney(order.totalAmount, order.currency)}</p>
-            <p><strong>Payment:</strong> ${escapeHtml(order.paymentStatus)}</p>
+            <p><strong>Payment:</strong> ${escapeHtml(getCustomerPaymentLabel(order.paymentStatus))}</p>
             <p><strong>Items:</strong> ${order.items.length}</p>
             <p><strong>Tracking:</strong> ${escapeHtml(order.trackingNumber || "Not assigned yet")}</p>
           </div>

@@ -197,13 +197,32 @@ function getOrderStatusLabel(status) {
   const labels = {
     pending: "pending orders",
     all: "all orders",
-    paid: "paid orders",
-    fulfilled: "fulfilled orders",
-    inventory_issue: "inventory issue orders",
+    paid: "processing orders",
+    fulfilled: "sent orders",
+    inventory_issue: "orders needing attention",
     cancelled: "cancelled orders",
   };
 
   return labels[status] || "orders";
+}
+
+function getAdminOrderWorkflowLabel(status) {
+  const labels = {
+    paid: "Processing",
+    fulfilled: "Sent",
+    inventory_issue: "Needs attention",
+    cancelled: "Cancelled",
+  };
+
+  return labels[status] || String(status || "Order update").replace(/_/g, " ");
+}
+
+function getPaymentStatusLabel(status) {
+  if (status === "paid") {
+    return "Payment received";
+  }
+
+  return String(status || "-").replace(/_/g, " ");
 }
 
 function updateOrderResultsLabel(count, status, query = "") {
@@ -244,10 +263,10 @@ function renderOrders(orders) {
               <h3>Order #${order.id}</h3>
               <p class="muted">${escapeHtml(order.customer_name || order.customer_email || "Guest checkout")}</p>
             </div>
-            <span class="status-pill ${getOrderStatusClass(order.fulfillment_status)}">${escapeHtml(order.fulfillment_status.replace(/_/g, " "))}</span>
+            <span class="status-pill ${getOrderStatusClass(order.fulfillment_status)}">${escapeHtml(getAdminOrderWorkflowLabel(order.fulfillment_status))}</span>
           </div>
           <div class="admin-meta-grid">
-            <p><strong>Payment:</strong> ${escapeHtml(order.payment_status)}</p>
+            <p><strong>Payment:</strong> ${escapeHtml(getPaymentStatusLabel(order.payment_status))}</p>
             <p><strong>Items:</strong> ${order.item_count}</p>
             <p><strong>Total:</strong> ${window.LobosCart.formatMoney(order.total_amount)}</p>
             <p><strong>Created:</strong> ${formatAdminDate(order.created_at)}</p>
@@ -261,7 +280,7 @@ function renderOrders(orders) {
                 <select name="fulfillmentStatus">
                   ${["paid", "fulfilled", "inventory_issue", "cancelled"]
                     .map(
-                      (status) => `<option value="${status}"${status === order.fulfillment_status ? " selected" : ""}>${status.replace(/_/g, " ")}</option>`,
+                      (status) => `<option value="${status}"${status === order.fulfillment_status ? " selected" : ""}>${getAdminOrderWorkflowLabel(status)}</option>`,
                     )
                     .join("")}
                 </select>
