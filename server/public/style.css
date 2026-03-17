@@ -682,6 +682,14 @@ body.modal-open {
   margin-bottom: 0.85rem;
 }
 
+.admin-card-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 .admin-meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -740,9 +748,34 @@ body.modal-open {
   margin-bottom: 1rem;
 }
 
+.admin-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
 .admin-product-results {
   align-self: end;
   margin: 0;
+}
+
+.admin-toolbar-results,
+.admin-pagination-info {
+  margin: 0;
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-card-toggle {
+  min-width: 7rem;
 }
 
 .admin-image-field {
@@ -1091,6 +1124,7 @@ textarea {
   }
 
   .admin-product-toolbar,
+  .admin-toolbar,
   .admin-image-field {
     grid-template-columns: 1fr;
   }
@@ -1146,15 +1180,21 @@ textarea {
 
    .admin-section-heading,
     .admin-card-header,
+    .admin-card-header-actions,
     .admin-meta-grid,
     .admin-detail-grid,
     .admin-inline-actions,
     .admin-form-grid,
     .admin-product-toolbar,
+    .admin-toolbar,
     .admin-image-field {
      grid-template-columns: 1fr;
      flex-direction: column;
     }
+
+   .admin-pagination {
+     flex-direction: column;
+   }
 
    .product-actions {
      flex-direction: column;

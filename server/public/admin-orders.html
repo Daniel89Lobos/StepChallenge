@@ -45,7 +45,7 @@
           <div>
             <p class="eyebrow">Fulfillment</p>
             <h1>Pending orders</h1>
-            <p>Focus only on active orders that still need status updates or detail review.</p>
+            <p>Focus on active orders by default, then switch filters when you need fulfilled, cancelled, or inventory issue orders.</p>
           </div>
           <button id="refreshOrdersButton" class="btn btn-secondary" type="button">Refresh</button>
         </div>
@@ -54,6 +54,21 @@
       <p id="adminNotice" class="page-status" hidden></p>
 
       <section class="content-panel">
+        <section class="admin-toolbar">
+          <label>
+            Order status
+            <select id="adminOrderStatusFilter">
+              <option value="pending">Pending only</option>
+              <option value="all">All orders</option>
+              <option value="paid">Paid</option>
+              <option value="fulfilled">Fulfilled</option>
+              <option value="inventory_issue">Inventory issue</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <p id="adminOrderResults" class="muted admin-toolbar-results">Showing pending orders.</p>
+        </section>
+
         <div id="adminOrders" class="admin-list"></div>
       </section>
     </main>

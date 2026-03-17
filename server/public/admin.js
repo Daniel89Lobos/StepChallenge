@@ -20,8 +20,12 @@ const adminProductSearchInput = document.getElementById("adminProductSearch");
 const adminProductCategoryFilter = document.getElementById("adminProductCategoryFilter");
 const adminProductStatusFilter = document.getElementById("adminProductStatusFilter");
 const adminProductResults = document.getElementById("adminProductResults");
+const adminProductPagination = document.getElementById("adminProductPagination");
+const adminOrderStatusFilter = document.getElementById("adminOrderStatusFilter");
+const adminOrderResults = document.getElementById("adminOrderResults");
 
 const expandedOrderDetails = new Map();
+const expandedProductIds = new Set();
 
 let adminProductMeta = {
   categories: ["books", "calendars", "amigurumi"],
@@ -31,11 +35,18 @@ let adminProductMeta = {
 
 const adminProductState = {
   products: [],
+  page: 1,
+  pageSize: 4,
   filters: {
     search: "",
     category: "all",
     status: "all",
   },
+};
+
+const adminOrderState = {
+  status: "pending",
+  count: 0,
 };
 
 function showAdminNotice(message, type = "error") {
@@ -172,16 +183,41 @@ function getOrderStatusClass(status) {
   return "";
 }
 
+function getOrderStatusLabel(status) {
+  const labels = {
+    pending: "pending orders",
+    all: "all orders",
+    paid: "paid orders",
+    fulfilled: "fulfilled orders",
+    inventory_issue: "inventory issue orders",
+    cancelled: "cancelled orders",
+  };
+
+  return labels[status] || "orders";
+}
+
+function updateOrderResultsLabel(count, status) {
+  if (!adminOrderResults) {
+    return;
+  }
+
+  adminOrderResults.textContent = `Showing ${count} ${getOrderStatusLabel(status)}.`;
+}
+
 function renderOrders(orders) {
   if (!adminOrders) {
     return;
   }
 
+  const activeStatus = adminOrderState.status || "pending";
+  adminOrderState.count = Array.isArray(orders) ? orders.length : 0;
+  updateOrderResultsLabel(adminOrderState.count, activeStatus);
+
   if (!orders || orders.length === 0) {
     adminOrders.innerHTML = `
       <article class="empty-state">
-        <h3>No pending orders</h3>
-        <p>Everything is either fulfilled or cancelled right now.</p>
+        <h3>No ${escapeHtml(getOrderStatusLabel(activeStatus))}</h3>
+        <p>Try another order filter or check back after the next checkout.</p>
       </article>
     `;
     return;
@@ -457,7 +493,8 @@ function updateProductResultsLabel(visibleCount, totalCount) {
     return;
   }
 
-  adminProductResults.textContent = `Showing ${visibleCount} of ${totalCount} products.`;
+  const totalPages = Math.max(1, Math.ceil(visibleCount / adminProductState.pageSize));
+  adminProductResults.textContent = `Showing ${visibleCount} of ${totalCount} products. Page ${adminProductState.page} of ${totalPages}.`;
 }
 
 function productMatchesFilters(product) {
@@ -490,15 +527,55 @@ function getFilteredProducts() {
   return adminProductState.products.filter(productMatchesFilters);
 }
 
+function getPaginatedProducts(products) {
+  const totalPages = Math.max(1, Math.ceil(products.length / adminProductState.pageSize));
+
+  if (adminProductState.page > totalPages) {
+    adminProductState.page = totalPages;
+  }
+
+  if (adminProductState.page < 1) {
+    adminProductState.page = 1;
+  }
+
+  const startIndex = (adminProductState.page - 1) * adminProductState.pageSize;
+
+  return {
+    items: products.slice(startIndex, startIndex + adminProductState.pageSize),
+    totalPages,
+    startIndex,
+  };
+}
+
+function renderProductPagination(totalItems, totalPages) {
+  if (!adminProductPagination) {
+    return;
+  }
+
+  if (totalItems <= adminProductState.pageSize) {
+    adminProductPagination.hidden = true;
+    adminProductPagination.innerHTML = "";
+    return;
+  }
+
+  adminProductPagination.hidden = false;
+  adminProductPagination.innerHTML = `
+    <button class="btn btn-secondary" type="button" data-product-page="prev" ${adminProductState.page <= 1 ? "disabled" : ""}>Previous</button>
+    <p class="admin-pagination-info">Page ${adminProductState.page} of ${totalPages}</p>
+    <button class="btn btn-secondary" type="button" data-product-page="next" ${adminProductState.page >= totalPages ? "disabled" : ""}>Next</button>
+  `;
+}
+
 function renderProductList() {
   if (!adminProducts) {
     return;
   }
 
   const filteredProducts = getFilteredProducts();
-  updateProductResultsLabel(filteredProducts.length, adminProductState.products.length);
 
   if (adminProductState.products.length === 0) {
+    updateProductResultsLabel(0, 0);
+    renderProductPagination(0, 1);
     adminProducts.innerHTML = `
       <article class="empty-state">
         <h3>No products yet</h3>
@@ -509,6 +586,9 @@ function renderProductList() {
   }
 
   if (filteredProducts.length === 0) {
+    adminProductState.page = 1;
+    updateProductResultsLabel(0, adminProductState.products.length);
+    renderProductPagination(0, 1);
     adminProducts.innerHTML = `
       <article class="empty-state">
         <h3>No products match these filters</h3>
@@ -518,19 +598,29 @@ function renderProductList() {
     return;
   }
 
-  adminProducts.innerHTML = filteredProducts
-    .map((product) => {
+  const paginatedProducts = getPaginatedProducts(filteredProducts);
+  updateProductResultsLabel(filteredProducts.length, adminProductState.products.length);
+  renderProductPagination(filteredProducts.length, paginatedProducts.totalPages);
+
+  adminProducts.innerHTML = paginatedProducts.items
+    .map((product, index) => {
       const stockState = getProductStatus(product);
       const productHref = `product.html?slug=${encodeURIComponent(product.slug)}`;
+      const isExpanded = expandedProductIds.has(product.id);
+      const productNumber = paginatedProducts.startIndex + index + 1;
 
       return `
         <article class="admin-card">
           <div class="admin-card-header">
             <div>
+              <p class="eyebrow">Product ${productNumber}</p>
               <h3>${escapeHtml(product.name)}</h3>
               <p class="muted">/${escapeHtml(product.slug)}</p>
             </div>
-            <span class="status-pill ${stockState.className}">${escapeHtml(stockState.label)}</span>
+            <div class="admin-card-header-actions">
+              <span class="status-pill ${stockState.className}">${escapeHtml(stockState.label)}</span>
+              <button class="btn btn-secondary admin-card-toggle" type="button" data-product-expand="${product.id}">${isExpanded ? "Collapse" : "Expand"}</button>
+            </div>
           </div>
 
           <div class="admin-meta-grid">
@@ -542,7 +632,7 @@ function renderProductList() {
 
           <p class="muted admin-card-note">${escapeHtml(stockState.note)}</p>
 
-          <form class="admin-inline-form" data-product-form data-product-id="${product.id}" data-pending-image-upload="false">
+          <form class="admin-inline-form" data-product-form data-product-id="${product.id}" data-pending-image-upload="false"${isExpanded ? "" : " hidden"}>
             <div class="admin-form-grid">
               <label>
                 Product name
@@ -839,6 +929,29 @@ async function deleteProduct(form) {
   await loadAdminProducts();
 }
 
+function toggleProductExpansion(productId) {
+  if (expandedProductIds.has(productId)) {
+    expandedProductIds.delete(productId);
+  } else {
+    expandedProductIds.add(productId);
+  }
+
+  renderProductList();
+}
+
+function changeProductPage(direction) {
+  const filteredProducts = getFilteredProducts();
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / adminProductState.pageSize));
+
+  if (direction === "next") {
+    adminProductState.page = Math.min(totalPages, adminProductState.page + 1);
+  } else if (direction === "prev") {
+    adminProductState.page = Math.max(1, adminProductState.page - 1);
+  }
+
+  renderProductList();
+}
+
 function resetCreateProductForm() {
   if (!adminProductCreateForm) {
     return;
@@ -872,7 +985,12 @@ function syncProductFilters() {
     .toLowerCase();
   adminProductState.filters.category = String(adminProductCategoryFilter?.value || "all");
   adminProductState.filters.status = String(adminProductStatusFilter?.value || "all");
+  adminProductState.page = 1;
   renderProductList();
+}
+
+function syncOrderFilters() {
+  adminOrderState.status = String(adminOrderStatusFilter?.value || "pending");
 }
 
 function updateProductCategoryControls() {
@@ -902,7 +1020,7 @@ async function loadAdminSummary() {
 }
 
 async function loadAdminOrders() {
-  const data = await fetchAdminJson("/api/admin/orders?status=pending");
+  const data = await fetchAdminJson(`/api/admin/orders?status=${encodeURIComponent(adminOrderState.status)}`);
   renderOrders(data.orders || []);
 }
 
@@ -928,6 +1046,13 @@ async function loadAdminProducts() {
 
   updateProductCategoryControls();
   adminProductState.products = Array.isArray(data.products) ? data.products : [];
+
+  [...expandedProductIds].forEach((productId) => {
+    if (!adminProductState.products.some((product) => product.id === productId)) {
+      expandedProductIds.delete(productId);
+    }
+  });
+
   renderProductList();
 }
 
@@ -1016,6 +1141,16 @@ function bindProductManagement() {
     loadAdminProducts().catch((error) => showAdminNotice(error.message));
   });
 
+  adminProductPagination?.addEventListener("click", (event) => {
+    const pageButton = event.target.closest("[data-product-page]");
+
+    if (!pageButton) {
+      return;
+    }
+
+    changeProductPage(pageButton.dataset.productPage);
+  });
+
   adminProducts.addEventListener("change", (event) => {
     const imageInput = event.target.closest('input[name="imageFile"]');
 
@@ -1032,8 +1167,19 @@ function bindProductManagement() {
     const clearButton = event.target.closest("[data-clear-image]");
     const toggleVisibilityButton = event.target.closest("[data-product-toggle-visibility]");
     const deleteButton = event.target.closest("[data-product-delete]");
+    const expandButton = event.target.closest("[data-product-expand]");
 
-    if (!uploadButton && !clearButton && !toggleVisibilityButton && !deleteButton) {
+    if (!uploadButton && !clearButton && !toggleVisibilityButton && !deleteButton && !expandButton) {
+      return;
+    }
+
+    if (expandButton) {
+      const productId = Number.parseInt(expandButton.dataset.productExpand, 10);
+
+      if (Number.isInteger(productId) && productId > 0) {
+        toggleProductExpansion(productId);
+      }
+
       return;
     }
 
@@ -1106,6 +1252,14 @@ function bindProductManagement() {
 function bindOrders() {
   if (!adminOrders) {
     return;
+  }
+
+  if (adminOrderStatusFilter) {
+    adminOrderStatusFilter.value = adminOrderState.status;
+    adminOrderStatusFilter.addEventListener("change", () => {
+      syncOrderFilters();
+      loadAdminOrders().catch((error) => showAdminNotice(error.message));
+    });
   }
 
   refreshOrdersButton?.addEventListener("click", () => {
