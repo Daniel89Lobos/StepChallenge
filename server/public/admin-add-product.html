@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Product | Lobos Shop Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-admin-view="add-product">
+    <header class="site-header">
+      <a class="brand" href="index.html">Lobos Shop</a>
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">Menu</button>
+      <nav id="siteNav" class="site-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+        <a class="active" href="admin.html" data-admin-link hidden>Admin</a>
+        <a href="account.html" data-account-link>Login</a>
+        <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="content-panel">
+        <p class="eyebrow">Admin navigation</p>
+        <div class="admin-page-nav">
+          <a class="admin-page-link" href="admin.html">Overview</a>
+          <a class="admin-page-link is-active" href="admin-add-product.html">Add product</a>
+          <a class="admin-page-link" href="admin-products.html">Product management</a>
+          <a class="admin-page-link" href="admin-orders.html">Pending orders</a>
+          <a class="admin-page-link" href="admin-accounts.html">Accounts</a>
+        </div>
+      </section>
+
+      <section class="content-panel">
+        <p class="eyebrow">Inventory</p>
+        <h1>Add a product</h1>
+        <p>Create a new product, set its stock, and decide whether it should appear in the storefront.</p>
+      </section>
+
+      <p id="adminNotice" class="page-status" hidden></p>
+
+      <section class="content-panel admin-product-create-shell">
+        <form id="adminProductCreateForm" class="admin-inline-form">
+          <div class="admin-form-grid">
+            <label>
+              Product name
+              <input id="adminProductName" name="name" type="text" required />
+            </label>
+            <label>
+              Slug
+              <input id="adminProductSlug" name="slug" type="text" placeholder="auto-generated-from-name" required />
+            </label>
+            <label>
+              Category
+              <select name="category" required>
+                <option value="books">Books</option>
+                <option value="calendars">Calendars</option>
+                <option value="amigurumi">Amigurumi</option>
+              </select>
+            </label>
+            <label>
+              Price (kr)
+              <input name="price" type="number" min="0" step="0.01" placeholder="199.00" required />
+            </label>
+            <label>
+              Stock quantity
+              <input name="stockQuantity" type="number" min="0" step="1" required />
+            </label>
+            <label>
+              Stripe tax code
+              <input name="stripeTaxCode" type="text" placeholder="Optional" />
+            </label>
+            <label class="checkbox-row admin-checkbox-field">
+              <input name="active" type="checkbox" checked />
+              <span>Show in storefront</span>
+            </label>
+          </div>
+
+          <label>
+            Description
+            <textarea name="description" required></textarea>
+          </label>
+
+          <section class="admin-image-field">
+            <input name="imagePath" type="hidden" />
+            <div class="admin-image-preview-wrap">
+              <div class="admin-image-preview is-empty" data-image-preview>
+                <span>No image uploaded</span>
+              </div>
+              <p class="muted" data-image-path-label>No image selected yet.</p>
+            </div>
+            <div class="admin-image-controls">
+              <label>
+                Product image
+                <input name="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+              </label>
+              <div class="admin-inline-actions">
+                <button class="btn btn-secondary" type="button" data-upload-image>Upload image</button>
+                <button class="btn btn-secondary" type="button" data-clear-image>Clear image</button>
+              </div>
+            </div>
+          </section>
+
+          <div class="admin-inline-actions">
+            <button class="btn" type="submit">Create product</button>
+            <a class="btn btn-secondary" href="admin-products.html">Go to product management</a>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Lobos Shop</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

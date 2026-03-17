@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product Management | Lobos Shop Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-admin-view="products">
+    <header class="site-header">
+      <a class="brand" href="index.html">Lobos Shop</a>
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">Menu</button>
+      <nav id="siteNav" class="site-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+        <a class="active" href="admin.html" data-admin-link hidden>Admin</a>
+        <a href="account.html" data-account-link>Login</a>
+        <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="content-panel">
+        <p class="eyebrow">Admin navigation</p>
+        <div class="admin-page-nav">
+          <a class="admin-page-link" href="admin.html">Overview</a>
+          <a class="admin-page-link" href="admin-add-product.html">Add product</a>
+          <a class="admin-page-link is-active" href="admin-products.html">Product management</a>
+          <a class="admin-page-link" href="admin-orders.html">Pending orders</a>
+          <a class="admin-page-link" href="admin-accounts.html">Accounts</a>
+        </div>
+      </section>
+
+      <section class="content-panel">
+        <div class="admin-section-heading">
+          <div>
+            <p class="eyebrow">Catalog</p>
+            <h1>Product management</h1>
+            <p>Update existing items, replace images, adjust stock, and archive products without seeing the rest of the admin tools.</p>
+          </div>
+          <button id="refreshProductsButton" class="btn btn-secondary" type="button">Refresh</button>
+        </div>
+      </section>
+
+      <p id="adminNotice" class="page-status" hidden></p>
+
+      <section class="content-panel">
+        <section class="admin-product-toolbar">
+          <label>
+            Search
+            <input id="adminProductSearch" type="search" placeholder="Name, slug, or image path" />
+          </label>
+          <label>
+            Category
+            <select id="adminProductCategoryFilter">
+              <option value="all">All categories</option>
+              <option value="books">Books</option>
+              <option value="calendars">Calendars</option>
+              <option value="amigurumi">Amigurumi</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="adminProductStatusFilter">
+              <option value="all">All products</option>
+              <option value="low_stock">Low stock</option>
+              <option value="out_of_stock">Out of stock</option>
+              <option value="archived">Archived</option>
+              <option value="active">Active only</option>
+            </select>
+          </label>
+          <p id="adminProductResults" class="muted admin-product-results">Showing all products.</p>
+        </section>
+
+        <div id="adminProducts" class="admin-list"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Lobos Shop</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

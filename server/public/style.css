@@ -585,6 +585,62 @@ body.modal-open {
   margin: 0;
 }
 
+.admin-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-action-card {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1.2rem;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(239, 244, 249, 0.96) 100%);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.admin-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(23, 31, 39, 0.12);
+  border-color: rgba(69, 94, 116, 0.38);
+}
+
+.admin-action-card h2,
+.admin-action-card p {
+  margin: 0;
+}
+
+.admin-page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.admin-page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-page-link.is-active {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+
 .admin-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -655,6 +711,10 @@ body.modal-open {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface-soft);
+}
+
+.admin-product-create-shell {
+  margin-top: 1rem;
 }
 
 .admin-product-create h3,
@@ -1016,7 +1076,8 @@ textarea {
   .cards,
   .auth-grid,
   .admin-stats,
-  .admin-form-grid {
+  .admin-form-grid,
+  .admin-action-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1053,11 +1114,12 @@ textarea {
 
   .split-grid,
    .cards,
-   .auth-grid,
-   .admin-stats,
-   .cart-layout,
-   .checkout-grid,
-   .cart-row {
+    .auth-grid,
+    .admin-stats,
+    .admin-action-grid,
+    .cart-layout,
+    .checkout-grid,
+    .cart-row {
     grid-template-columns: 1fr;
   }
 

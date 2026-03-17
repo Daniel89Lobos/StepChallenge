@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pending Orders | Lobos Shop Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-admin-view="orders">
+    <header class="site-header">
+      <a class="brand" href="index.html">Lobos Shop</a>
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">Menu</button>
+      <nav id="siteNav" class="site-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+        <a class="active" href="admin.html" data-admin-link hidden>Admin</a>
+        <a href="account.html" data-account-link>Login</a>
+        <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="content-panel">
+        <p class="eyebrow">Admin navigation</p>
+        <div class="admin-page-nav">
+          <a class="admin-page-link" href="admin.html">Overview</a>
+          <a class="admin-page-link" href="admin-add-product.html">Add product</a>
+          <a class="admin-page-link" href="admin-products.html">Product management</a>
+          <a class="admin-page-link is-active" href="admin-orders.html">Pending orders</a>
+          <a class="admin-page-link" href="admin-accounts.html">Accounts</a>
+        </div>
+      </section>
+
+      <section class="content-panel">
+        <div class="admin-section-heading">
+          <div>
+            <p class="eyebrow">Fulfillment</p>
+            <h1>Pending orders</h1>
+            <p>Focus only on active orders that still need status updates or detail review.</p>
+          </div>
+          <button id="refreshOrdersButton" class="btn btn-secondary" type="button">Refresh</button>
+        </div>
+      </section>
+
+      <p id="adminNotice" class="page-status" hidden></p>
+
+      <section class="content-panel">
+        <div id="adminOrders" class="admin-list"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Lobos Shop</p>
+    </footer>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

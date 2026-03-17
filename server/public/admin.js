@@ -1,3 +1,5 @@
+const adminView = document.body.dataset.adminView || "dashboard";
+
 const adminNotice = document.getElementById("adminNotice");
 const adminTotalUsers = document.getElementById("adminTotalUsers");
 const adminAdminUsers = document.getElementById("adminAdminUsers");
@@ -120,25 +122,30 @@ async function uploadProductImage(file) {
   return data;
 }
 
-function clearAdminLists() {
-  if (adminOrders) {
-    adminOrders.innerHTML = "";
-  }
-
-  if (adminUsers) {
-    adminUsers.innerHTML = "";
-  }
-
-  if (adminProducts) {
-    adminProducts.innerHTML = "";
-  }
+function clearProtectedRoots() {
+  [adminOrders, adminUsers, adminProducts].forEach((root) => {
+    if (root) {
+      root.innerHTML = "";
+    }
+  });
 }
 
 function renderStats(stats) {
-  adminTotalUsers.textContent = String(stats.totalUsers || 0);
-  adminAdminUsers.textContent = String(stats.adminUsers || 0);
-  adminPendingOrders.textContent = String(stats.pendingOrders || 0);
-  adminTotalOrders.textContent = String(stats.totalOrders || 0);
+  if (adminTotalUsers) {
+    adminTotalUsers.textContent = String(stats.totalUsers || 0);
+  }
+
+  if (adminAdminUsers) {
+    adminAdminUsers.textContent = String(stats.adminUsers || 0);
+  }
+
+  if (adminPendingOrders) {
+    adminPendingOrders.textContent = String(stats.pendingOrders || 0);
+  }
+
+  if (adminTotalOrders) {
+    adminTotalOrders.textContent = String(stats.totalOrders || 0);
+  }
 
   if (adminTotalProducts) {
     adminTotalProducts.textContent = String(stats.totalProducts || 0);
@@ -293,9 +300,7 @@ async function toggleOrderDetails(orderId, toggleButton) {
     expandedOrderDetails.delete(orderId);
     detailContainer.hidden = true;
     detailContainer.innerHTML = "";
-    if (toggleButton) {
-      toggleButton.textContent = "View details";
-    }
+    toggleButton.textContent = "View details";
     return;
   }
 
@@ -307,9 +312,7 @@ async function toggleOrderDetails(orderId, toggleButton) {
     const markup = renderOrderDetailMarkup(data.order);
     expandedOrderDetails.set(orderId, markup);
     detailContainer.innerHTML = markup;
-    if (toggleButton) {
-      toggleButton.textContent = "Hide details";
-    }
+    toggleButton.textContent = "Hide details";
   } catch (error) {
     detailContainer.innerHTML = `<p class="page-status is-error">${escapeHtml(error.message || "Could not load order details.")}</p>`;
   }
@@ -509,7 +512,7 @@ function renderProductList() {
     adminProducts.innerHTML = `
       <article class="empty-state">
         <h3>No products match these filters</h3>
-        <p>Try a different search term or change the category/status filters.</p>
+        <p>Try a different search term or change the category or status filters.</p>
       </article>
     `;
     return;
@@ -734,9 +737,11 @@ async function uploadSelectedImage(form, triggerButton) {
     setProductImagePreview(form, data.imagePath, {
       label: data.imagePath,
     });
+
     if (imageFileInput) {
       imageFileInput.value = "";
     }
+
     showAdminNotice("Image uploaded.", "success");
   } finally {
     if (triggerButton) {
@@ -780,16 +785,17 @@ function buildProductPayload(form) {
 }
 
 function resetCreateProductForm() {
-  adminProductCreateForm?.reset();
+  if (!adminProductCreateForm) {
+    return;
+  }
+
+  adminProductCreateForm.reset();
+  markPendingImageUpload(adminProductCreateForm, false);
+  setProductImagePreview(adminProductCreateForm, "");
 
   if (adminProductSlugInput) {
     adminProductSlugInput.dataset.manual = "false";
     adminProductSlugInput.value = "";
-  }
-
-  if (adminProductCreateForm) {
-    markPendingImageUpload(adminProductCreateForm, false);
-    setProductImagePreview(adminProductCreateForm, "");
   }
 }
 
@@ -832,6 +838,10 @@ function updateProductCategoryControls() {
 }
 
 async function loadAdminSummary() {
+  if (!adminTotalUsers) {
+    return;
+  }
+
   const data = await fetchAdminJson("/api/admin/summary");
   renderStats(data.stats || {});
 }
@@ -866,38 +876,16 @@ async function loadAdminProducts() {
   renderProductList();
 }
 
-async function loadAdminPage() {
-  clearAdminNotice();
-
-  try {
-    await window.LobosAuth.refresh();
-    const user = window.LobosAuth.getUser();
-
-    if (!user) {
-      showAdminNotice("Log in with an admin account to use this page.");
-      clearAdminLists();
-      return;
-    }
-
-    if (!user.isAdmin) {
-      showAdminNotice("This account does not have admin access.");
-      clearAdminLists();
-      return;
-    }
-
-    await Promise.all([loadAdminSummary(), loadAdminOrders(), loadAdminUsers(), loadAdminProducts()]);
-  } catch (error) {
-    showAdminNotice(error.message || "Could not load the admin dashboard.");
+function bindCreateProductForm() {
+  if (!adminProductCreateForm) {
+    return;
   }
-}
-
-if (adminOrders && adminUsers && adminProducts) {
-  loadAdminPage();
 
   if (adminProductSlugInput) {
     adminProductSlugInput.dataset.manual = "false";
     adminProductSlugInput.addEventListener("input", () => {
       adminProductSlugInput.dataset.manual = adminProductSlugInput.value.trim().length > 0 ? "true" : "false";
+
       if (adminProductSlugInput.dataset.manual === "false") {
         syncCreateProductSlug();
       }
@@ -905,60 +893,14 @@ if (adminOrders && adminUsers && adminProducts) {
   }
 
   adminProductNameInput?.addEventListener("input", syncCreateProductSlug);
-  adminProductSearchInput?.addEventListener("input", syncProductFilters);
-  adminProductCategoryFilter?.addEventListener("change", syncProductFilters);
-  adminProductStatusFilter?.addEventListener("change", syncProductFilters);
 
-  refreshOrdersButton?.addEventListener("click", () => {
-    loadAdminOrders().catch((error) => showAdminNotice(error.message));
-  });
-
-  refreshUsersButton?.addEventListener("click", () => {
-    loadAdminUsers().catch((error) => showAdminNotice(error.message));
-  });
-
-  refreshProductsButton?.addEventListener("click", () => {
-    loadAdminProducts().catch((error) => showAdminNotice(error.message));
-  });
-
-  adminProductCreateForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    try {
-      const payload = buildProductPayload(adminProductCreateForm);
-      const button = adminProductCreateForm.querySelector('button[type="submit"]');
-
-      if (button) {
-        button.disabled = true;
-      }
-
-      await fetchAdminJson("/api/admin/products", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      resetCreateProductForm();
-      showAdminNotice("Product created.", "success");
-      await Promise.all([loadAdminSummary(), loadAdminProducts()]);
-    } catch (error) {
-      showAdminNotice(error.message || "Could not create this product.");
-    } finally {
-      const button = adminProductCreateForm.querySelector('button[type="submit"]');
-      if (button) {
-        button.disabled = false;
-      }
-    }
-  });
-
-  adminProductCreateForm?.addEventListener("change", (event) => {
-    const imageInput = event.target.closest('input[name="imageFile"]');
-
-    if (imageInput) {
+  adminProductCreateForm.addEventListener("change", (event) => {
+    if (event.target.closest('input[name="imageFile"]')) {
       previewSelectedImageFile(adminProductCreateForm);
     }
   });
 
-  adminProductCreateForm?.addEventListener("click", async (event) => {
+  adminProductCreateForm.addEventListener("click", async (event) => {
     const uploadButton = event.target.closest("[data-upload-image]");
     const clearButton = event.target.closest("[data-clear-image]");
 
@@ -976,95 +918,47 @@ if (adminOrders && adminUsers && adminProducts) {
     }
   });
 
-  adminOrders.addEventListener("submit", async (event) => {
-    const form = event.target.closest("[data-order-form]");
-
-    if (!form) {
-      return;
-    }
-
+  adminProductCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     try {
-      const formData = new FormData(form);
-      const orderId = form.dataset.orderId;
-      const button = form.querySelector('button[type="submit"]');
+      const payload = buildProductPayload(adminProductCreateForm);
+      const button = adminProductCreateForm.querySelector('button[type="submit"]');
 
       if (button) {
         button.disabled = true;
       }
 
-      await fetchAdminJson(`/api/admin/orders/${orderId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          fulfillmentStatus: String(formData.get("fulfillmentStatus") || ""),
-        }),
+      await fetchAdminJson("/api/admin/products", {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
 
-      showAdminNotice(`Order #${orderId} updated.`, "success");
-      await Promise.all([loadAdminSummary(), loadAdminOrders()]);
+      resetCreateProductForm();
+      showAdminNotice("Product created.", "success");
     } catch (error) {
-      showAdminNotice(error.message || "Could not update this order.");
+      showAdminNotice(error.message || "Could not create this product.");
     } finally {
-      const button = form.querySelector('button[type="submit"]');
-      if (button && form.isConnected) {
-        button.disabled = false;
-      }
-    }
-  });
+      const button = adminProductCreateForm.querySelector('button[type="submit"]');
 
-  adminOrders.addEventListener("click", async (event) => {
-    const toggleButton = event.target.closest("[data-order-toggle]");
-
-    if (!toggleButton) {
-      return;
-    }
-
-    const orderId = Number.parseInt(toggleButton.dataset.orderId, 10);
-
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      return;
-    }
-
-    await toggleOrderDetails(orderId, toggleButton);
-  });
-
-  adminUsers.addEventListener("submit", async (event) => {
-    const form = event.target.closest("[data-user-form]");
-
-    if (!form) {
-      return;
-    }
-
-    event.preventDefault();
-
-    try {
-      const formData = new FormData(form);
-      const userId = form.dataset.userId;
-      const button = form.querySelector('button[type="submit"]');
       if (button) {
-        button.disabled = true;
-      }
-
-      await fetchAdminJson(`/api/admin/users/${userId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          username: String(formData.get("username") || "").trim(),
-          newPassword: String(formData.get("newPassword") || ""),
-          isAdmin: formData.get("isAdmin") === "on",
-        }),
-      });
-
-      showAdminNotice("Account updated.", "success");
-      await Promise.all([window.LobosAuth.refresh(), loadAdminSummary(), loadAdminUsers()]);
-    } catch (error) {
-      showAdminNotice(error.message || "Could not update this account.");
-    } finally {
-      const button = form.querySelector('button[type="submit"]');
-      if (button && form.isConnected) {
         button.disabled = false;
       }
     }
+  });
+}
+
+function bindProductManagement() {
+  if (!adminProducts) {
+    return;
+  }
+
+  adminProductSearchInput?.addEventListener("input", syncProductFilters);
+  adminProductCategoryFilter?.addEventListener("change", syncProductFilters);
+  adminProductStatusFilter?.addEventListener("change", syncProductFilters);
+
+  refreshProductsButton?.addEventListener("click", () => {
+    loadAdminProducts().catch((error) => showAdminNotice(error.message));
   });
 
   adminProducts.addEventListener("change", (event) => {
@@ -1128,14 +1022,203 @@ if (adminOrders && adminUsers && adminProducts) {
       });
 
       showAdminNotice("Product updated.", "success");
-      await Promise.all([loadAdminSummary(), loadAdminProducts()]);
+      await loadAdminProducts();
     } catch (error) {
       showAdminNotice(error.message || "Could not update this product.");
     } finally {
       const button = form.querySelector('button[type="submit"]');
+
       if (button && form.isConnected) {
         button.disabled = false;
       }
     }
   });
 }
+
+function bindOrders() {
+  if (!adminOrders) {
+    return;
+  }
+
+  refreshOrdersButton?.addEventListener("click", () => {
+    loadAdminOrders().catch((error) => showAdminNotice(error.message));
+  });
+
+  adminOrders.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-order-form]");
+
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      const formData = new FormData(form);
+      const orderId = form.dataset.orderId;
+      const button = form.querySelector('button[type="submit"]');
+
+      if (button) {
+        button.disabled = true;
+      }
+
+      await fetchAdminJson(`/api/admin/orders/${orderId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          fulfillmentStatus: String(formData.get("fulfillmentStatus") || ""),
+        }),
+      });
+
+      showAdminNotice(`Order #${orderId} updated.`, "success");
+      await loadAdminOrders();
+    } catch (error) {
+      showAdminNotice(error.message || "Could not update this order.");
+    } finally {
+      const button = form.querySelector('button[type="submit"]');
+
+      if (button && form.isConnected) {
+        button.disabled = false;
+      }
+    }
+  });
+
+  adminOrders.addEventListener("click", async (event) => {
+    const toggleButton = event.target.closest("[data-order-toggle]");
+
+    if (!toggleButton) {
+      return;
+    }
+
+    const orderId = Number.parseInt(toggleButton.dataset.orderId, 10);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    await toggleOrderDetails(orderId, toggleButton);
+  });
+}
+
+function bindUsers() {
+  if (!adminUsers) {
+    return;
+  }
+
+  refreshUsersButton?.addEventListener("click", () => {
+    loadAdminUsers().catch((error) => showAdminNotice(error.message));
+  });
+
+  adminUsers.addEventListener("submit", async (event) => {
+    const form = event.target.closest("[data-user-form]");
+
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      const formData = new FormData(form);
+      const userId = form.dataset.userId;
+      const button = form.querySelector('button[type="submit"]');
+
+      if (button) {
+        button.disabled = true;
+      }
+
+      await fetchAdminJson(`/api/admin/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          username: String(formData.get("username") || "").trim(),
+          newPassword: String(formData.get("newPassword") || ""),
+          isAdmin: formData.get("isAdmin") === "on",
+        }),
+      });
+
+      showAdminNotice("Account updated.", "success");
+      await Promise.all([window.LobosAuth.refresh(), loadAdminUsers()]);
+    } catch (error) {
+      showAdminNotice(error.message || "Could not update this account.");
+    } finally {
+      const button = form.querySelector('button[type="submit"]');
+
+      if (button && form.isConnected) {
+        button.disabled = false;
+      }
+    }
+  });
+}
+
+async function ensureAdminAccess() {
+  clearAdminNotice();
+
+  try {
+    await window.LobosAuth.refresh();
+    const user = window.LobosAuth.getUser();
+
+    if (!user) {
+      showAdminNotice("Log in with an admin account to use this page.");
+      clearProtectedRoots();
+      return false;
+    }
+
+    if (!user.isAdmin) {
+      showAdminNotice("This account does not have admin access.");
+      clearProtectedRoots();
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    showAdminNotice(error.message || "Could not load the admin page.");
+    clearProtectedRoots();
+    return false;
+  }
+}
+
+async function loadCurrentAdminView() {
+  if (adminView === "dashboard") {
+    await loadAdminSummary();
+    return;
+  }
+
+  if (adminView === "add-product") {
+    updateProductCategoryControls();
+    return;
+  }
+
+  if (adminView === "products") {
+    await loadAdminProducts();
+    return;
+  }
+
+  if (adminView === "orders") {
+    await loadAdminOrders();
+    return;
+  }
+
+  if (adminView === "accounts") {
+    await loadAdminUsers();
+  }
+}
+
+async function initAdminPage() {
+  bindCreateProductForm();
+  bindProductManagement();
+  bindOrders();
+  bindUsers();
+
+  const hasAccess = await ensureAdminAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  try {
+    await loadCurrentAdminView();
+  } catch (error) {
+    showAdminNotice(error.message || "Could not load this admin section.");
+  }
+}
+
+initAdminPage();
