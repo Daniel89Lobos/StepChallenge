@@ -45,7 +45,7 @@
           <div>
             <p class="eyebrow">Accounts</p>
             <h1>Customers and admins</h1>
-            <p>Manage user records without mixing account work into product or order tasks.</p>
+            <p>Search users quickly, open one account at a time, and edit or remove accounts without scrolling through every form.</p>
           </div>
           <button id="refreshUsersButton" class="btn btn-secondary" type="button">Refresh</button>
         </div>
@@ -54,6 +54,14 @@
       <p id="adminNotice" class="page-status" hidden></p>
 
       <section class="content-panel">
+        <section class="admin-toolbar">
+          <label>
+            Search users
+            <input id="adminUserSearch" type="search" placeholder="Search by username" />
+          </label>
+          <p id="adminUserResults" class="muted admin-toolbar-results">Showing all users.</p>
+        </section>
+
         <div id="adminUsers" class="admin-list"></div>
       </section>
     </main>

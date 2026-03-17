@@ -1305,7 +1305,7 @@ app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const result = await pool.query(
       `SELECT id, username, group_name, is_admin, created_at
        FROM users
-       ORDER BY created_at DESC, id DESC
+       ORDER BY LOWER(username) ASC, id ASC
        LIMIT 200`,
     );
 
@@ -1658,6 +1658,68 @@ app.put("/api/admin/users/:id", requireAdmin, async (req, res) => {
   } catch (error) {
     console.error("Admin user update error:", error);
     res.status(500).json({ error: "Could not update user" });
+  }
+});
+
+app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  try {
+    const userId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+
+    if (req.session.userId === userId) {
+      return res.status(400).json({ error: "You cannot delete the account you are currently using" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const existingUserResult = await client.query(
+        "SELECT id, username, is_admin FROM users WHERE id = $1 FOR UPDATE",
+        [userId],
+      );
+
+      if (existingUserResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const existingUser = existingUserResult.rows[0];
+
+      if (existingUser.is_admin) {
+        const adminCount = await client.query(
+          "SELECT COUNT(*)::int AS count FROM users WHERE is_admin = true",
+        );
+
+        if (adminCount.rows[0].count <= 1) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ error: "At least one admin account is required" });
+        }
+      }
+
+      await client.query("DELETE FROM users WHERE id = $1", [userId]);
+      await client.query("COMMIT");
+
+      res.json({
+        message: "User deleted",
+        user: {
+          id: userId,
+          username: existingUser.username,
+        },
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Admin user delete error:", error);
+    res.status(500).json({ error: "Could not delete user" });
   }
 });
 

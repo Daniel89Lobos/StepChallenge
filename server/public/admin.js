@@ -23,6 +23,8 @@ const adminProductResults = document.getElementById("adminProductResults");
 const adminProductPagination = document.getElementById("adminProductPagination");
 const adminOrderStatusFilter = document.getElementById("adminOrderStatusFilter");
 const adminOrderResults = document.getElementById("adminOrderResults");
+const adminUserSearchInput = document.getElementById("adminUserSearch");
+const adminUserResults = document.getElementById("adminUserResults");
 
 const expandedOrderDetails = new Map();
 const expandedProductIds = new Set();
@@ -47,6 +49,12 @@ const adminProductState = {
 const adminOrderState = {
   status: "pending",
   count: 0,
+};
+
+const adminUserState = {
+  users: [],
+  search: "",
+  expandedUserId: null,
 };
 
 function showAdminNotice(message, type = "error") {
@@ -359,6 +367,20 @@ function renderUsers(users) {
     return;
   }
 
+  const filteredUsers = adminUserState.users.filter((user) =>
+    String(user.username || "")
+      .toLowerCase()
+      .includes(adminUserState.search),
+  );
+
+  if (adminUserResults) {
+    if (adminUserState.users.length === 0) {
+      adminUserResults.textContent = "No users found yet.";
+    } else {
+      adminUserResults.textContent = `Showing ${filteredUsers.length} of ${adminUserState.users.length} users.`;
+    }
+  }
+
   if (!users || users.length === 0) {
     adminUsers.innerHTML = `
       <article class="empty-state">
@@ -369,7 +391,17 @@ function renderUsers(users) {
     return;
   }
 
-  adminUsers.innerHTML = users
+  if (filteredUsers.length === 0) {
+    adminUsers.innerHTML = `
+      <article class="empty-state">
+        <h3>No matching users</h3>
+        <p>Try another username search.</p>
+      </article>
+    `;
+    return;
+  }
+
+  adminUsers.innerHTML = filteredUsers
     .map(
       (user) => `
         <article class="admin-card">
@@ -378,9 +410,13 @@ function renderUsers(users) {
               <h3>${escapeHtml(user.username)}</h3>
               <p class="muted">Created ${formatAdminDate(user.created_at)}</p>
             </div>
-            <span class="status-pill ${user.is_admin ? "in-stock" : ""}">${user.is_admin ? "Admin" : "Customer"}</span>
+            <div class="admin-card-header-actions">
+              <span class="status-pill ${user.is_admin ? "in-stock" : ""}">${user.is_admin ? "Admin" : "Customer"}</span>
+              <button class="btn btn-secondary admin-card-toggle" type="button" data-user-expand="${user.id}">${adminUserState.expandedUserId === user.id ? "Close" : "Edit"}</button>
+              <button class="btn btn-danger" type="button" data-user-delete="${user.id}">Delete</button>
+            </div>
           </div>
-          <form class="admin-inline-form" data-user-form data-user-id="${user.id}">
+          <form class="admin-inline-form" data-user-form data-user-id="${user.id}"${adminUserState.expandedUserId === user.id ? "" : " hidden"}>
             <label>
               Username
               <input name="username" type="text" value="${escapeHtml(user.username)}" required />
@@ -1026,7 +1062,16 @@ async function loadAdminOrders() {
 
 async function loadAdminUsers() {
   const data = await fetchAdminJson("/api/admin/users");
-  renderUsers(data.users || []);
+  adminUserState.users = Array.isArray(data.users) ? data.users : [];
+
+  if (
+    adminUserState.expandedUserId &&
+    !adminUserState.users.some((user) => user.id === adminUserState.expandedUserId)
+  ) {
+    adminUserState.expandedUserId = null;
+  }
+
+  renderUsers(adminUserState.users);
 }
 
 async function loadAdminProducts() {
@@ -1326,8 +1371,68 @@ function bindUsers() {
     return;
   }
 
+  adminUserSearchInput?.addEventListener("input", () => {
+    adminUserState.search = String(adminUserSearchInput.value || "")
+      .trim()
+      .toLowerCase();
+    renderUsers(adminUserState.users);
+  });
+
   refreshUsersButton?.addEventListener("click", () => {
     loadAdminUsers().catch((error) => showAdminNotice(error.message));
+  });
+
+  adminUsers.addEventListener("click", async (event) => {
+    const expandButton = event.target.closest("[data-user-expand]");
+    const deleteButton = event.target.closest("[data-user-delete]");
+
+    if (!expandButton && !deleteButton) {
+      return;
+    }
+
+    if (expandButton) {
+      const userId = Number.parseInt(expandButton.dataset.userExpand, 10);
+
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return;
+      }
+
+      adminUserState.expandedUserId = adminUserState.expandedUserId === userId ? null : userId;
+      renderUsers(adminUserState.users);
+      return;
+    }
+
+    const userId = Number.parseInt(deleteButton.dataset.userDelete, 10);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return;
+    }
+
+    const user = adminUserState.users.find((entry) => entry.id === userId);
+    const username = user?.username || "this user";
+    const confirmed = window.confirm(
+      `Delete ${username}? This removes the account and any saved cart items for that user.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      deleteButton.disabled = true;
+      await fetchAdminJson(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+      adminUserState.expandedUserId = adminUserState.expandedUserId === userId ? null : adminUserState.expandedUserId;
+      showAdminNotice(`${username} was deleted.`, "success");
+      await Promise.all([window.LobosAuth.refresh(), loadAdminSummary(), loadAdminUsers()]);
+    } catch (error) {
+      showAdminNotice(error.message || "Could not delete this account.");
+    } finally {
+      if (deleteButton.isConnected) {
+        deleteButton.disabled = false;
+      }
+    }
   });
 
   adminUsers.addEventListener("submit", async (event) => {
