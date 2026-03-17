@@ -10,6 +10,8 @@ const accountLoginButton = document.getElementById("accountLoginButton");
 const accountRegisterButton = document.getElementById("accountRegisterButton");
 const accountLogoutButton = document.getElementById("accountLogoutButton");
 const accountAdminLink = document.getElementById("accountAdminLink");
+const expandedAccountOrderIds = new Set();
+let accountOrdersCache = [];
 
 function showAccountNotice(message, type = "error") {
   if (!accountNotice) {
@@ -53,7 +55,15 @@ function getOrderStatusClass(status) {
     return "processing";
   }
 
+  if (status === "packed") {
+    return "processing";
+  }
+
   if (status === "fulfilled") {
+    return "in-stock";
+  }
+
+  if (status === "delivered") {
     return "in-stock";
   }
 
@@ -78,8 +88,22 @@ function getCustomerOrderStatus(status) {
 
   if (status === "fulfilled") {
     return {
-      label: "Shipped",
-      detail: "Your order has been fulfilled and is on the way.",
+      label: "Sent",
+      detail: "Your order has been sent and is on the way.",
+    };
+  }
+
+  if (status === "packed") {
+    return {
+      label: "Packed",
+      detail: "Your order is packed and nearly ready to leave the shop.",
+    };
+  }
+
+  if (status === "delivered") {
+    return {
+      label: "Delivered",
+      detail: "Your order has been marked as delivered.",
     };
   }
 
@@ -109,6 +133,65 @@ function getCustomerPaymentLabel(status) {
   }
 
   return String(status || "-").replace(/_/g, " ");
+}
+
+function parseAddress(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+function getAddressLines(order) {
+  const shipping = parseAddress(order.shippingAddress);
+  const address = shipping?.address || shipping;
+
+  if (!address || typeof address !== "object") {
+    return [];
+  }
+
+  return [
+    shipping?.name,
+    address.line1,
+    address.line2,
+    [address.postal_code, address.city].filter(Boolean).join(" "),
+    address.state,
+    address.country,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function renderExpandedOrderDetails(order) {
+  const addressLines = getAddressLines(order);
+
+  return `
+    <div class="account-order-detail-grid">
+      <section>
+        <h5>Shipping</h5>
+        ${addressLines.length > 0 ? addressLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("") : '<p class="muted">Shipping address saved during checkout.</p>'}
+      </section>
+      <section>
+        <h5>Order details</h5>
+        <p><strong>Tracking:</strong> ${escapeHtml(order.trackingNumber || "Not assigned yet")}</p>
+        ${order.customerNote ? `<p><strong>Message from Lobos Shop:</strong> ${escapeHtml(order.customerNote)}</p>` : '<p class="muted">No new message from Lobos Shop right now.</p>'}
+      </section>
+    </div>
+    <div class="account-order-totals">
+      <p><span>Subtotal</span><strong>${window.LobosCart.formatMoney(order.subtotalAmount, order.currency)}</strong></p>
+      <p><span>Shipping</span><strong>${window.LobosCart.formatMoney(order.shippingAmount, order.currency)}</strong></p>
+      <p><span>Tax</span><strong>${window.LobosCart.formatMoney(order.taxAmount, order.currency)}</strong></p>
+    </div>
+  `;
 }
 
 async function fetchProfile() {
@@ -148,6 +231,7 @@ async function fetchUserOrders() {
 }
 
 function renderGuestPanels() {
+  expandedAccountOrderIds.clear();
   guestAccountPanels.hidden = false;
   accountProfilePanel.hidden = true;
   accountLoginForm?.reset();
@@ -158,6 +242,7 @@ function renderGuestPanels() {
   }
 
   if (accountOrders) {
+    accountOrdersCache = [];
     accountOrders.innerHTML = "";
   }
 }
@@ -196,6 +281,7 @@ function renderOrderHistory(orders) {
   accountOrders.innerHTML = orders
     .map((order) => {
       const customerStatus = getCustomerOrderStatus(order.fulfillmentStatus);
+      const isExpanded = expandedAccountOrderIds.has(order.id);
 
       return `
         <article class="account-order-card">
@@ -229,6 +315,12 @@ function renderOrderHistory(orders) {
               )
               .join("")}
           </section>
+          <div class="account-order-actions">
+            <button class="btn btn-secondary" type="button" data-account-order-toggle="${order.id}">${isExpanded ? "Hide details" : "View details"}</button>
+          </div>
+          <div class="account-order-detail"${isExpanded ? "" : " hidden"}>
+            ${isExpanded ? renderExpandedOrderDetails(order) : ""}
+          </div>
         </article>
       `;
     })
@@ -266,8 +358,10 @@ async function refreshAccountPage() {
   renderProfilePanel(profileUser);
 
   if (ordersResult.status === "fulfilled") {
-    renderOrderHistory(ordersResult.value);
+    accountOrdersCache = ordersResult.value;
+    renderOrderHistory(accountOrdersCache);
   } else {
+    accountOrdersCache = [];
     renderOrderHistory([]);
   }
 
@@ -280,6 +374,28 @@ async function refreshAccountPage() {
 
 if (guestAccountPanels && accountProfilePanel) {
   refreshAccountPage();
+
+  accountOrders?.addEventListener("click", (event) => {
+    const toggleButton = event.target.closest("[data-account-order-toggle]");
+
+    if (!toggleButton) {
+      return;
+    }
+
+    const orderId = Number.parseInt(toggleButton.dataset.accountOrderToggle, 10);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return;
+    }
+
+    if (expandedAccountOrderIds.has(orderId)) {
+      expandedAccountOrderIds.delete(orderId);
+    } else {
+      expandedAccountOrderIds.add(orderId);
+    }
+
+    renderOrderHistory(accountOrdersCache);
+  });
 
   accountLoginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();

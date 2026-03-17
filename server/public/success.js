@@ -44,10 +44,24 @@ function getCustomerOrderStatus(status) {
     };
   }
 
+  if (status === "packed") {
+    return {
+      label: "Packed",
+      detail: "Your order is packed and nearly ready to leave the shop.",
+    };
+  }
+
   if (status === "fulfilled") {
     return {
-      label: "Shipped",
-      detail: "Your order has been fulfilled and is on the way.",
+      label: "Sent",
+      detail: "Your order has been sent and is on the way.",
+    };
+  }
+
+  if (status === "delivered") {
+    return {
+      label: "Delivered",
+      detail: "Your order has been marked as delivered.",
     };
   }
 

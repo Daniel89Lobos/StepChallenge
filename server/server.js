@@ -7,6 +7,7 @@ const session = require("express-session");
 const connectPgSimple = require("connect-pg-simple");
 const cors = require("cors");
 const multer = require("multer");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
@@ -26,6 +27,15 @@ const PRODUCT_CATEGORY_SET = new Set(PRODUCT_CATEGORIES);
 const PRODUCT_UPLOAD_DIR = path.join(PUBLIC_DIR, "assets", "uploads");
 const PRODUCT_UPLOAD_WEB_PATH = "assets/uploads";
 const PRODUCT_IMAGE_UPLOAD_LIMIT = 5 * 1024 * 1024;
+const ORDER_FULFILLMENT_STATUSES = [
+  "paid",
+  "packed",
+  "fulfilled",
+  "delivered",
+  "inventory_issue",
+  "cancelled",
+];
+const NON_PENDING_ORDER_STATUSES = ["fulfilled", "delivered", "cancelled"];
 const DEFAULT_PAYMENT_METHOD_TYPES = ["card", "klarna", "swish"];
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -140,6 +150,20 @@ const sessionStore = new PostgresSessionStore({
   tableName: "user_sessions",
   createTableIfMissing: true,
 });
+
+const emailTransport = process.env.SMTP_HOST && process.env.SMTP_FROM
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number.parseInt(process.env.SMTP_PORT || "587", 10),
+      secure: String(process.env.SMTP_SECURE || "false").trim().toLowerCase() === "true",
+      auth: process.env.SMTP_USER
+        ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD,
+          }
+        : undefined,
+    })
+  : null;
 
 // Stripe webhook must receive the raw body before JSON parsing.
 app.post(
@@ -294,7 +318,7 @@ app.post(
           currency
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17
-        ) RETURNING id`,
+        ) RETURNING *`,
         [
           checkoutSession.id,
           checkoutSession.payment_intent || null,
@@ -355,6 +379,17 @@ app.post(
       );
 
       await client.query("COMMIT");
+      await sendOrderConfirmationEmail(
+        buildOrderResponse(
+          orderResult.rows[0],
+          orderItems.map((item) => ({
+            product_name: item.product.name,
+            unit_amount: item.product.unit_amount,
+            quantity: item.quantity,
+            line_total: item.lineTotal,
+          })),
+        ),
+      );
       res.json({ received: true });
     } catch (error) {
       await client.query("ROLLBACK");
@@ -471,6 +506,187 @@ function formatCurrency(amount, currency = SHOP_CURRENCY) {
   } catch (error) {
     return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`;
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getCustomerOrderStatusInfo(status) {
+  if (status === "paid") {
+    return {
+      label: "Processing",
+      detail: "We have your payment and are preparing your order now.",
+    };
+  }
+
+  if (status === "packed") {
+    return {
+      label: "Packed",
+      detail: "Your order is packed and nearly ready to leave the shop.",
+    };
+  }
+
+  if (status === "fulfilled") {
+    return {
+      label: "Sent",
+      detail: "Your order has been sent and is on the way.",
+    };
+  }
+
+  if (status === "delivered") {
+    return {
+      label: "Delivered",
+      detail: "Your order has been marked as delivered.",
+    };
+  }
+
+  if (status === "inventory_issue") {
+    return {
+      label: "Needs attention",
+      detail: "We are reviewing stock for this order and will update you soon.",
+    };
+  }
+
+  if (status === "cancelled") {
+    return {
+      label: "Cancelled",
+      detail: "This order has been cancelled.",
+    };
+  }
+
+  return {
+    label: String(status || "Order update"),
+    detail: "We will keep your order status updated here.",
+  };
+}
+
+function formatOrderStatusForAdmin(status) {
+  return getCustomerOrderStatusInfo(status).label;
+}
+
+function formatPaymentStatusLabel(status) {
+  if (status === "paid") {
+    return "Payment received";
+  }
+
+  return String(status || "-").replace(/_/g, " ");
+}
+
+function formatShippingAddressLines(shippingAddress) {
+  const shipping = shippingAddress?.address ? shippingAddress : shippingAddress?.shippingAddress || shippingAddress;
+  const address = shipping?.address || shipping;
+
+  if (!address || typeof address !== "object") {
+    return [];
+  }
+
+  return [
+    shipping?.name,
+    address.line1,
+    address.line2,
+    [address.postal_code, address.city].filter(Boolean).join(" "),
+    address.state,
+    address.country,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+async function sendEmailMessage({ to, subject, text, html }) {
+  if (!emailTransport || !to) {
+    return false;
+  }
+
+  try {
+    await emailTransport.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error("Email send error:", error);
+    return false;
+  }
+}
+
+async function sendOrderConfirmationEmail(order) {
+  if (!order?.customerEmail) {
+    return false;
+  }
+
+  const statusInfo = getCustomerOrderStatusInfo(order.fulfillmentStatus);
+  const shippingLines = formatShippingAddressLines(order.shippingAddress);
+  const itemsText = order.items
+    .map((item) => `- ${item.productName} x ${item.quantity}: ${formatCurrency(item.lineTotal, order.currency)}`)
+    .join("\n");
+  const messageText = order.customerNote ? `\nMessage from Lobos Shop: ${order.customerNote}\n` : "";
+  const trackingText = order.trackingNumber ? `\nTracking number: ${order.trackingNumber}\n` : "";
+  const addressText = shippingLines.length > 0 ? `\nShipping to:\n${shippingLines.join("\n")}\n` : "";
+
+  return sendEmailMessage({
+    to: order.customerEmail,
+    subject: `Lobos Shop order confirmation #${order.id}`,
+    text:
+      `Hi${order.customerName ? ` ${order.customerName}` : ""},\n\n` +
+      `Thanks for your order at Lobos Shop.\n` +
+      `Status: ${statusInfo.label}\n` +
+      `Payment: ${formatPaymentStatusLabel(order.paymentStatus)}\n\n` +
+      `Items:\n${itemsText}\n\n` +
+      `Total: ${formatCurrency(order.totalAmount, order.currency)}\n` +
+      `${trackingText}${messageText}${addressText}\n` +
+      `You can review your order anytime in your account.`,
+    html:
+      `<p>Hi${order.customerName ? ` ${escapeHtml(order.customerName)}` : ""},</p>` +
+      `<p>Thanks for your order at Lobos Shop.</p>` +
+      `<p><strong>Status:</strong> ${escapeHtml(statusInfo.label)}<br /><strong>Payment:</strong> ${escapeHtml(formatPaymentStatusLabel(order.paymentStatus))}</p>` +
+      `<ul>${order.items
+        .map(
+          (item) => `<li>${escapeHtml(item.productName)} x ${item.quantity} - ${escapeHtml(formatCurrency(item.lineTotal, order.currency))}</li>`,
+        )
+        .join("")}</ul>` +
+      `<p><strong>Total:</strong> ${escapeHtml(formatCurrency(order.totalAmount, order.currency))}</p>` +
+      `${order.trackingNumber ? `<p><strong>Tracking number:</strong> ${escapeHtml(order.trackingNumber)}</p>` : ""}` +
+      `${order.customerNote ? `<p><strong>Message from Lobos Shop:</strong> ${escapeHtml(order.customerNote)}</p>` : ""}` +
+      `${shippingLines.length > 0 ? `<p><strong>Shipping to:</strong><br />${shippingLines.map((line) => escapeHtml(line)).join("<br />")}</p>` : ""}` +
+      `<p>You can review your order anytime in your account.</p>`,
+  });
+}
+
+async function sendOrderStatusUpdateEmail(order) {
+  if (!order?.customerEmail) {
+    return false;
+  }
+
+  const statusInfo = getCustomerOrderStatusInfo(order.fulfillmentStatus);
+  const includeTracking = order.fulfillmentStatus === "fulfilled" || order.fulfillmentStatus === "delivered";
+
+  return sendEmailMessage({
+    to: order.customerEmail,
+    subject: `Lobos Shop order update #${order.id}: ${statusInfo.label}`,
+    text:
+      `Hi${order.customerName ? ` ${order.customerName}` : ""},\n\n` +
+      `Your Lobos Shop order is now marked as ${statusInfo.label}.\n` +
+      `${statusInfo.detail}\n\n` +
+      `${includeTracking && order.trackingNumber ? `Tracking number: ${order.trackingNumber}\n\n` : ""}` +
+      `${order.customerNote ? `Message from Lobos Shop: ${order.customerNote}\n\n` : ""}` +
+      `You can log in to your account for the latest details.`,
+    html:
+      `<p>Hi${order.customerName ? ` ${escapeHtml(order.customerName)}` : ""},</p>` +
+      `<p>Your Lobos Shop order is now marked as <strong>${escapeHtml(statusInfo.label)}</strong>.</p>` +
+      `<p>${escapeHtml(statusInfo.detail)}</p>` +
+      `${includeTracking && order.trackingNumber ? `<p><strong>Tracking number:</strong> ${escapeHtml(order.trackingNumber)}</p>` : ""}` +
+      `${order.customerNote ? `<p><strong>Message from Lobos Shop:</strong> ${escapeHtml(order.customerNote)}</p>` : ""}` +
+      `<p>You can log in to your account for the latest details.</p>`,
+  });
 }
 
 function buildOrderResponse(order, items = []) {
@@ -1194,7 +1410,7 @@ app.get("/api/admin/summary", requireAdmin, async (req, res) => {
       pool.query(
         `SELECT
            COUNT(*)::int AS total_orders,
-           COUNT(*) FILTER (WHERE fulfillment_status NOT IN ('fulfilled', 'cancelled'))::int AS pending_orders
+           COUNT(*) FILTER (WHERE fulfillment_status NOT IN ('fulfilled', 'delivered', 'cancelled'))::int AS pending_orders
          FROM orders`,
       ),
       pool.query(
@@ -1232,7 +1448,7 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
     const whereClauses = [];
 
     if (status === "pending") {
-      whereClauses.push("o.fulfillment_status NOT IN ('fulfilled', 'cancelled')");
+      whereClauses.push("o.fulfillment_status NOT IN ('fulfilled', 'delivered', 'cancelled')");
     } else if (status !== "all") {
       params.push(status);
       whereClauses.push(`o.fulfillment_status = $${params.length}`);
@@ -1325,7 +1541,7 @@ app.get("/api/admin/orders/:id", requireAdmin, async (req, res) => {
 
 app.put("/api/admin/orders/:id", requireAdmin, async (req, res) => {
   try {
-    const allowedStatuses = new Set(["paid", "fulfilled", "inventory_issue", "cancelled"]);
+    const allowedStatuses = new Set(ORDER_FULFILLMENT_STATUSES);
     const orderId = Number.parseInt(req.params.id, 10);
     const fulfillmentStatus = String(req.body.fulfillmentStatus || "").trim().toLowerCase();
     const trackingNumber = String(req.body.trackingNumber || "").trim() || null;
@@ -1352,23 +1568,61 @@ app.put("/api/admin/orders/:id", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "Customer note must be 2000 characters or fewer" });
     }
 
-    const result = await pool.query(
-      `UPDATE orders
-       SET fulfillment_status = $1,
-           tracking_number = $2,
-           admin_note = $3,
-           customer_note = $4,
-            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5
-       RETURNING id, fulfillment_status, tracking_number, admin_note, customer_note, updated_at`,
-      [fulfillmentStatus, trackingNumber, adminNote, customerNote, orderId],
-    );
+    const client = await pool.connect();
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Order not found" });
+    try {
+      await client.query("BEGIN");
+
+      const currentOrderResult = await client.query(
+        "SELECT * FROM orders WHERE id = $1 FOR UPDATE",
+        [orderId],
+      );
+
+      if (currentOrderResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const currentOrder = currentOrderResult.rows[0];
+      const result = await client.query(
+        `UPDATE orders
+         SET fulfillment_status = $1,
+             tracking_number = $2,
+             admin_note = $3,
+             customer_note = $4,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $5
+         RETURNING *`,
+        [fulfillmentStatus, trackingNumber, adminNote, customerNote, orderId],
+      );
+
+      const itemsResult = await client.query(
+        `SELECT product_name, unit_amount, quantity, line_total
+         FROM order_items
+         WHERE order_id = $1
+         ORDER BY id ASC`,
+        [orderId],
+      );
+
+      await client.query("COMMIT");
+
+      const updatedOrder = buildOrderResponse(result.rows[0], itemsResult.rows);
+      const shouldSendStatusEmail =
+        updatedOrder.customerEmail &&
+        currentOrder.fulfillment_status !== fulfillmentStatus &&
+        ["packed", "fulfilled", "delivered", "inventory_issue", "cancelled"].includes(fulfillmentStatus);
+
+      if (shouldSendStatusEmail) {
+        await sendOrderStatusUpdateEmail(updatedOrder);
+      }
+
+      return res.json({ order: updatedOrder });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
     }
-
-    res.json({ order: result.rows[0] });
   } catch (error) {
     console.error("Admin order update error:", error);
     res.status(500).json({ error: "Could not update order" });

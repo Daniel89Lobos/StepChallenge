@@ -990,6 +990,41 @@ body.modal-open {
   gap: 0.65rem;
 }
 
+.account-order-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.account-order-detail {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+}
+
+.account-order-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.account-order-detail-grid h5,
+.account-order-detail-grid p,
+.account-order-totals p {
+  margin: 0;
+}
+
+.account-order-totals {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.account-order-totals p {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .account-order-item {
   padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--line);
@@ -1266,11 +1301,12 @@ textarea {
     .admin-inline-actions,
     .admin-form-grid,
     .admin-product-toolbar,
-    .admin-toolbar,
-    .admin-image-field,
-    .account-order-header,
-    .account-order-meta,
-    .account-order-item {
+     .admin-toolbar,
+     .admin-image-field,
+     .account-order-header,
+     .account-order-meta,
+    .account-order-item,
+    .account-order-detail-grid {
      grid-template-columns: 1fr;
      flex-direction: column;
      }

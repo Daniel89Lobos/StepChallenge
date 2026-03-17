@@ -178,7 +178,15 @@ function renderStats(stats) {
 }
 
 function getOrderStatusClass(status) {
+  if (status === "paid" || status === "packed") {
+    return "processing";
+  }
+
   if (status === "fulfilled") {
+    return "in-stock";
+  }
+
+  if (status === "delivered") {
     return "in-stock";
   }
 
@@ -198,7 +206,9 @@ function getOrderStatusLabel(status) {
     pending: "pending orders",
     all: "all orders",
     paid: "processing orders",
+    packed: "packed orders",
     fulfilled: "sent orders",
+    delivered: "delivered orders",
     inventory_issue: "orders needing attention",
     cancelled: "cancelled orders",
   };
@@ -209,7 +219,9 @@ function getOrderStatusLabel(status) {
 function getAdminOrderWorkflowLabel(status) {
   const labels = {
     paid: "Processing",
+    packed: "Packed",
     fulfilled: "Sent",
+    delivered: "Delivered",
     inventory_issue: "Needs attention",
     cancelled: "Cancelled",
   };
@@ -278,7 +290,7 @@ function renderOrders(orders) {
               <label>
                 Fulfillment status
                 <select name="fulfillmentStatus">
-                  ${["paid", "fulfilled", "inventory_issue", "cancelled"]
+                  ${["paid", "packed", "fulfilled", "delivered", "inventory_issue", "cancelled"]
                     .map(
                       (status) => `<option value="${status}"${status === order.fulfillment_status ? " selected" : ""}>${getAdminOrderWorkflowLabel(status)}</option>`,
                     )
@@ -340,6 +352,7 @@ function renderOrderDetailMarkup(order) {
         <p><strong>Email:</strong> ${escapeHtml(order.customerEmail || "-")}</p>
         <p><strong>Phone:</strong> ${escapeHtml(order.phone || shipping.phone || "-")}</p>
         <p><strong>Tracking:</strong> ${escapeHtml(order.trackingNumber || "Not assigned")}</p>
+        ${order.customerNote ? `<p><strong>Customer note:</strong> ${escapeHtml(order.customerNote)}</p>` : ""}
       </section>
       <section>
         <h4>Shipping</h4>
